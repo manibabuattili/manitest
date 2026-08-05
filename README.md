@@ -1,1 +1,48 @@
-# manitest
+# Bluconn Support Portal MVP
+
+Customer Portal + Internal Partner Portal for Bluconn support ticketing.
+
+## Stack
+
+- Next.js 15 (App Router) + TypeScript
+- Tailwind CSS + shadcn-style UI
+- Prisma + PostgreSQL
+- React Hook Form patterns / Zod / Server Actions / Zustand-ready architecture
+
+## Setup
+
+```bash
+# Ensure PostgreSQL is running and DATABASE_URL is set in .env
+cp .env.example .env
+
+npm install
+npm run db:setup
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Portals
+
+| Portal | Route |
+|--------|-------|
+| Home / portal picker | `/` |
+| Customer — My Tickets | `/support` |
+| Customer — Ticket detail | `/support/SUP-xxxx` |
+| Partner — Support queue | `/partner/support` |
+| Partner — Ticket detail | `/partner/support/SUP-xxxx` |
+
+## MVP features
+
+- Raise ticket (customer modal + partner drawer)
+- Ticket list with search, filters, pagination
+- Ticket detail with conversation timeline
+- Replies + `@internal` notes (partner)
+- Assign to me, status/priority/label/component updates, close ticket
+- SLA countdown + breached badge (Low 7d / Medium 3d / High 1d / Critical 4h)
+- Seed data: 20 customers, 5 agents, 75 tickets, ~500 messages
+
+## Demo actors
+
+- Customer flow uses seeded customers (default create uses first/demo customer)
+- Partner agent: `olivia@untitledui.com`
