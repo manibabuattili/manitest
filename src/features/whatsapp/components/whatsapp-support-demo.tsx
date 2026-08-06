@@ -57,6 +57,7 @@ Please find the attendance report screenshot attached.`;
 const STORAGE_KEY = "bluconn-wa-support-demo";
 
 type PersistedDemo = {
+  role: "field" | "poc";
   ticketNumber: string;
   ticketId: string;
   seenSupportIds: string[];
@@ -92,6 +93,8 @@ function Tick({ status }: { status?: ChatMessage["status"] }) {
 
 export function WhatsAppSupportDemo() {
   const [input, setInput] = useState("");
+  const [role, setRole] = useState<"field" | "poc">("field");
+  const [pocLabel, setPocLabel] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -117,6 +120,7 @@ export function WhatsAppSupportDemo() {
   const seenSupportRef = useRef<Set<string>>(new Set());
   const repliedSupportRef = useRef<Set<string>>(new Set());
   const restoredRef = useRef(false);
+  const roleRef = useRef<"field" | "poc">("field");
 
   const pushMessage = useCallback((msg: Omit<ChatMessage, "id" | "time"> & { id?: string }) => {
     setMessages((prev) => [
@@ -129,8 +133,11 @@ export function WhatsAppSupportDemo() {
     ]);
   }, []);
 
-  const persist = useCallback((ticketNumberValue: string, ticketIdValue: string) => {
+  const persist = useCallback((ticketNumberValue: string, ticketIdValue: string, roleValue?: "field" | "poc") => {
+    const nextRole = roleValue ?? roleRef.current;
+    roleRef.current = nextRole;
     savePersisted({
+      role: nextRole,
       ticketNumber: ticketNumberValue,
       ticketId: ticketIdValue,
       seenSupportIds: Array.from(seenSupportRef.current),
@@ -146,24 +153,88 @@ export function WhatsAppSupportDemo() {
     async function restore() {
       const params = new URLSearchParams(window.location.search);
       const fromQuery = params.get("ticket");
+      const roleParam = params.get("role") === "poc" ? "poc" : null;
       const saved = loadPersisted();
       const number = fromQuery || saved?.ticketNumber || null;
+      const nextRole: "field" | "poc" = roleParam || saved?.role || "field";
       if (!number) return;
 
       const result = await getWhatsAppTicketSnapshot(number);
       if (!result.ok || !result.ticket) return;
 
-      if (saved?.seenSupportIds) {
+      // Fresh deep-link wins over stale session seen-ids
+      if (saved?.seenSupportIds && !roleParam && !fromQuery) {
         seenSupportRef.current = new Set(saved.seenSupportIds);
       }
-      if (saved?.repliedToSupportIds) {
+      if (saved?.repliedToSupportIds && !roleParam && !fromQuery) {
         repliedSupportRef.current = new Set(saved.repliedToSupportIds);
       }
 
+      setRole(nextRole);
+      roleRef.current = nextRole;
       setTicketNumber(result.ticket.ticketNumber);
       setTicketId(result.ticket.id);
       setTicketSnap(result.ticket);
-      persist(result.ticket.ticketNumber, result.ticket.id);
+      const pocName = result.ticket.customer.name;
+      const pocPhone = result.ticket.customer.phone;
+      setPocLabel(pocPhone ? `${pocName} · ${pocPhone}` : pocName);
+
+      if (nextRole === "poc") {
+        const supportMessages = result.ticket.messages.filter((m) => m.senderType === "SUPPORT");
+        const firstSupport = supportMessages[0] ?? null;
+        const latest = result.ticket.latestSupportReply;
+
+        const restoredMessages: ChatMessage[] = [
+          {
+            id: "welcome-poc",
+            from: "bot",
+            kind: "text",
+            text: `Hi ${pocName}! Bluconn Support messages you here when a partner agent raises a ticket with you as the POC.`,
+            time: new Date(result.ticket.createdAt),
+          },
+          {
+            id: "poc-raised",
+            from: "bot",
+            kind: "cta",
+            text:
+              firstSupport?.body ??
+              `Bluconn Support opened ticket ${result.ticket.ticketNumber} for you: ${result.ticket.subject}. You'll receive updates on this WhatsApp number.`,
+            time: new Date(firstSupport?.createdAt ?? result.ticket.createdAt),
+            ctaLabel: "View & Reply",
+            ctaAction: "view",
+          },
+        ];
+
+        if (firstSupport) seenSupportRef.current.add(firstSupport.id);
+
+        if (latest && latest.id !== firstSupport?.id) {
+          seenSupportRef.current.add(latest.id);
+          restoredMessages.push({
+            id: `update-${latest.id}`,
+            from: "bot",
+            kind: "cta",
+            text: `You have received a new update on your support ticket ${result.ticket.ticketNumber}.`,
+            time: new Date(latest.createdAt),
+            ctaLabel: "View & Reply",
+            ctaAction: "view",
+          });
+          if (repliedSupportRef.current.has(latest.id)) {
+            restoredMessages.push({
+              id: "thanks",
+              from: "bot",
+              kind: "text",
+              text: "Thanks! We have received your additional information. Our support team is investigating the issue and will update you soon.",
+              time: new Date(),
+            });
+          }
+        }
+
+        setMessages(restoredMessages);
+        persist(result.ticket.ticketNumber, result.ticket.id, "poc");
+        return;
+      }
+
+      persist(result.ticket.ticketNumber, result.ticket.id, "field");
 
       const restoredMessages: ChatMessage[] = [
         {
@@ -202,27 +273,17 @@ export function WhatsAppSupportDemo() {
       const latest = result.ticket.latestSupportReply;
       if (latest) {
         const alreadyReplied = repliedSupportRef.current.has(latest.id);
-        if (!alreadyReplied) {
-          seenSupportRef.current.add(latest.id);
-          restoredMessages.push({
-            id: `update-${latest.id}`,
-            from: "bot",
-            kind: "cta",
-            text: `You have received a new update on your support ticket ${result.ticket.ticketNumber}.`,
-            time: new Date(latest.createdAt),
-            ctaLabel: "View & Reply",
-            ctaAction: "view",
-          });
-        } else {
-          restoredMessages.push({
-            id: `update-${latest.id}`,
-            from: "bot",
-            kind: "cta",
-            text: `You have received a new update on your support ticket ${result.ticket.ticketNumber}.`,
-            time: new Date(latest.createdAt),
-            ctaLabel: "View & Reply",
-            ctaAction: "view",
-          });
+        seenSupportRef.current.add(latest.id);
+        restoredMessages.push({
+          id: `update-${latest.id}`,
+          from: "bot",
+          kind: "cta",
+          text: `You have received a new update on your support ticket ${result.ticket.ticketNumber}.`,
+          time: new Date(latest.createdAt),
+          ctaLabel: "View & Reply",
+          ctaAction: "view",
+        });
+        if (alreadyReplied) {
           restoredMessages.push({
             id: "thanks",
             from: "bot",
@@ -234,7 +295,7 @@ export function WhatsAppSupportDemo() {
       }
 
       setMessages(restoredMessages);
-      persist(result.ticket.ticketNumber, result.ticket.id);
+      persist(result.ticket.ticketNumber, result.ticket.id, "field");
     }
 
     void restore();
@@ -288,6 +349,19 @@ export function WhatsAppSupportDemo() {
     if (!text) return;
     setInput("");
     pushMessage({ from: "user", kind: "text", text, status: "read" });
+
+    if (role === "poc") {
+      setTimeout(() => {
+        pushMessage({
+          from: "bot",
+          kind: "text",
+          text: ticketNumber
+            ? `You're the POC for ${ticketNumber}. When support replies, you'll get a View & Reply button here.`
+            : "You're in POC inbox mode. Open a partner-raised ticket link to follow updates.",
+        });
+      }, 400);
+      return;
+    }
 
     if (/^support$/i.test(text)) {
       setTimeout(() => {
@@ -367,7 +441,9 @@ export function WhatsAppSupportDemo() {
       setTicketId(result.ticket.id);
       seenSupportRef.current = new Set();
       repliedSupportRef.current = new Set();
-      persist(number, result.ticket.id);
+      persist(number, result.ticket.id, "field");
+      setRole("field");
+      roleRef.current = "field";
       setSuccessText(
         `Your support ticket has been created successfully. Ticket ID: ${number}.`
       );
@@ -449,7 +525,9 @@ export function WhatsAppSupportDemo() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[16px] font-medium leading-tight">Bluconn Support</p>
-            <p className="text-[12px] text-[#8696a0]">online</p>
+            <p className="truncate text-[12px] text-[#8696a0]">
+              {role === "poc" && pocLabel ? `POC inbox · ${pocLabel}` : "online"}
+            </p>
           </div>
           <Video className="h-5 w-5 opacity-90" />
           <Phone className="h-5 w-5 opacity-90" />
@@ -475,7 +553,9 @@ export function WhatsAppSupportDemo() {
             <div className="mb-3 flex justify-center">
               <span className="inline-flex max-w-[85%] items-center gap-1 rounded-lg bg-[#182229] px-3 py-1.5 text-center text-[11px] leading-snug text-[#8696a0] shadow">
                 <Lock className="h-3 w-3 shrink-0" />
-                Messages are end-to-end encrypted. Only people in this chat can read them.
+                {role === "poc"
+                  ? "POC mode — partner-raised ticket updates arrive on this WhatsApp number."
+                  : "Messages are end-to-end encrypted. Only people in this chat can read them."}
               </span>
             </div>
 
@@ -510,14 +590,15 @@ export function WhatsAppSupportDemo() {
                   placeholder="Message"
                   className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-[#8696a0]"
                 />
-                <button
-                  type="button"
-                  className="rounded-md px-1.5 py-1 text-[11px] font-semibold text-[#00a884] hover:bg-white/5"
-                  onClick={() => sendUserText("Support")}
-                >
-                  Support
-                </button>
-                <Paperclip className="h-5 w-5 shrink-0 text-[#8696a0]" />
+                {role !== "poc" && (
+                  <button
+                    type="button"
+                    className="rounded-md px-1.5 py-1 text-[11px] font-semibold text-[#00a884] hover:bg-white/5"
+                    onClick={() => sendUserText("Support")}
+                  >
+                    Support
+                  </button>
+                )} <Paperclip className="h-5 w-5 shrink-0 text-[#8696a0]" />
                 <Camera className="h-5 w-5 shrink-0 text-[#8696a0]" />
               </div>
               <button

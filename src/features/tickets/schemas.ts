@@ -20,6 +20,8 @@ export const createTicketSchema = z.object({
   source: z.enum(["PORTAL", "WHATSAPP"]).default("PORTAL"),
   preferredTicketNumber: z.string().optional(),
   skipAutoReply: z.boolean().optional(),
+  /** Partner portal: notify the selected POC on WhatsApp */
+  notifyWhatsApp: z.boolean().optional(),
 });
 
 export const replySchema = z.object({

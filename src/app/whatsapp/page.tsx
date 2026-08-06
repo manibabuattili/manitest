@@ -18,41 +18,47 @@ export default function WhatsAppSupportPage() {
             WhatsApp channel
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">
-            Raise support from the field
+            Raise support from the field — or as a POC
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            Site engineers contact Bluconn Support in WhatsApp. Keyword{" "}
-            <span className="font-semibold text-gray-800">Support</span> opens an in-app form —
-            tickets sync live to the Partner Portal.
+            Site engineers can raise tickets here. When a partner agent raises a ticket and picks a
+            POC, that person also gets create + reply updates on their WhatsApp number and can
+            respond from this chat.
           </p>
-          <ol className="mt-6 space-y-2 text-sm text-gray-600">
-            <li className="flex gap-2">
-              <span className="font-semibold text-[#075E54]">1.</span>
-              Send <strong>Support</strong>, tap Raise Support Ticket, create SUP-2027.
-            </li>
-            <li className="flex gap-2">
-              <span className="font-semibold text-[#075E54]">2.</span>
-              Open Partner Portal → ticket SUP-2027 → assign, label Bug, component Attendance,
-              reply.
-            </li>
-            <li className="flex gap-2">
-              <span className="font-semibold text-[#075E54]">3.</span>
-              Return here — View &amp; Reply opens the in-app ticket thread.
-            </li>
-          </ol>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/partner/support"
-              className="inline-flex rounded-lg bg-[#075E54] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#064e47]"
-            >
-              Open Partner Portal →
-            </Link>
-            <Link
-              href="/whatsapp?ticket=SUP-2027"
-              className="inline-flex rounded-lg border border-[#075E54]/30 bg-white px-4 py-2.5 text-sm font-semibold text-[#075E54] shadow-sm hover:bg-[#ecfdf3]"
-            >
-              Resume SUP-2027 chat
-            </Link>
+
+          <div className="mt-6 space-y-4">
+            <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#075E54]">
+                Scenario A · Field raise
+              </p>
+              <ol className="mt-2 space-y-1.5 text-sm text-gray-600">
+                <li>1. Send <strong>Support</strong> → Raise Support Ticket → create SUP-2027.</li>
+                <li>2. Partner Portal replies → View &amp; Reply here.</li>
+              </ol>
+              <Link
+                href="/whatsapp?ticket=SUP-2027"
+                className="mt-3 inline-flex text-sm font-semibold text-[#075E54] hover:underline"
+              >
+                Resume SUP-2027 →
+              </Link>
+            </div>
+
+            <div className="rounded-2xl border border-[#25D366]/35 bg-[#ecfdf3]/80 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#065f46]">
+                Scenario B · Partner → POC WhatsApp
+              </p>
+              <ol className="mt-2 space-y-1.5 text-sm text-gray-600">
+                <li>1. Partner Portal → Raise Ticket → select Account + POC (see WhatsApp number).</li>
+                <li>2. Create ticket — toast links to this POC WhatsApp inbox.</li>
+                <li>3. Agent replies in Partner Portal → POC gets View &amp; Reply here.</li>
+              </ol>
+              <Link
+                href="/partner/support"
+                className="mt-3 inline-flex text-sm font-semibold text-[#065f46] hover:underline"
+              >
+                Open Partner Portal →
+              </Link>
+            </div>
           </div>
         </div>
 

@@ -38,6 +38,7 @@ export default async function PartnerSupportPage({
           id: c.id,
           name: c.name,
           company: c.company,
+          phone: c.phone,
         }))}
         components={meta.components}
         labels={meta.labels}

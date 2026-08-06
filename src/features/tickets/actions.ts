@@ -226,7 +226,15 @@ export async function createTicketAction(raw: unknown) {
   }
   const ticketNumber = preferred ?? (await nextTicketNumber());
   const now = new Date();
-  const skipAutoReply = data.skipAutoReply ?? data.source === "WHATSAPP";
+  const notifyWhatsApp =
+    data.notifyWhatsApp ??
+    (data.source === "PORTAL" && Boolean(data.customerId) && Boolean(customer.phone));
+  const skipAutoReply =
+    data.skipAutoReply ?? (data.source === "WHATSAPP" || notifyWhatsApp);
+
+  const partnerWhatsAppIntro = notifyWhatsApp
+    ? `Hi ${customer.name}, Bluconn Support has opened ticket ${ticketNumber} on your behalf.\n\nSubject: ${data.subject}\n\nWe'll send progress updates to this WhatsApp number (${customer.phone}). Tap View & Reply anytime to respond.`
+    : null;
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -241,7 +249,7 @@ export async function createTicketAction(raw: unknown) {
       assigneeId: data.assigneeId ?? null,
       componentId: data.componentId ?? null,
       lastMessageAt: now,
-      lastMessagePreview: data.description.slice(0, 120),
+      lastMessagePreview: (partnerWhatsAppIntro ?? data.description).slice(0, 120),
       unreadCount: 1,
       labels: data.labelIds?.length
         ? { create: data.labelIds.map((labelId) => ({ labelId })) }
@@ -273,39 +281,77 @@ export async function createTicketAction(raw: unknown) {
                 }
               : undefined,
           },
-          ...(skipAutoReply
-            ? []
-            : [
+          ...(partnerWhatsAppIntro
+            ? [
                 {
-                  body: "Hi! Thanks for reaching out — we've received your ticket and will get back to you shortly.",
+                  body: partnerWhatsAppIntro,
                   senderType: "SUPPORT" as const,
                   agentId: agent?.id,
                 },
-              ]),
+              ]
+            : skipAutoReply
+              ? []
+              : [
+                  {
+                    body: "Hi! Thanks for reaching out — we've received your ticket and will get back to you shortly.",
+                    senderType: "SUPPORT" as const,
+                    agentId: agent?.id,
+                  },
+                ]),
         ],
       },
       statusHistory: {
         create: { fromStatus: null, toStatus: "OPEN" },
       },
       activities: {
-        create: {
-          action: "TICKET_CREATED",
-          description:
-            data.source === "WHATSAPP"
-              ? `Ticket ${ticketNumber} created via WhatsApp`
-              : `Ticket ${ticketNumber} created`,
-          agentId: agent?.id,
-          metadata: { source: data.source ?? "PORTAL" },
-        },
+        create: [
+          {
+            action: "TICKET_CREATED",
+            description:
+              data.source === "WHATSAPP"
+                ? `Ticket ${ticketNumber} created via WhatsApp`
+                : `Ticket ${ticketNumber} created`,
+            agentId: agent?.id,
+            metadata: { source: data.source ?? "PORTAL" },
+          },
+          ...(notifyWhatsApp && customer.phone
+            ? [
+                {
+                  action: "WHATSAPP_POC_NOTIFIED",
+                  description: `Support updates sent to POC ${customer.name} on WhatsApp ${customer.phone}`,
+                  agentId: agent?.id,
+                  metadata: {
+                    customerId: customer.id,
+                    phone: customer.phone,
+                    channel: "WHATSAPP",
+                  },
+                },
+              ]
+            : []),
+        ],
       },
     },
+    include: { customer: true },
   });
 
   revalidatePath("/support");
   revalidatePath("/partner/support");
   revalidatePath("/partner");
   revalidatePath("/whatsapp");
-  return { ok: true as const, ticket };
+  return {
+    ok: true as const,
+    ticket,
+    whatsapp:
+      notifyWhatsApp && customer.phone
+        ? {
+            notified: true as const,
+            phone: customer.phone,
+            customerId: customer.id,
+            customerName: customer.name,
+            deepLink: `/whatsapp?role=poc&ticket=${ticket.ticketNumber}`,
+          }
+        : { notified: false as const },
+  };
 }
 
 export async function replyToTicketAction(raw: unknown) {
@@ -319,10 +365,7 @@ export async function replyToTicketAction(raw: unknown) {
   if (!ticket) return { ok: false as const, error: "Ticket not found" };
   if (ticket.status === "CLOSED") return { ok: false as const, error: "Closed tickets cannot receive replies" };
 
-  const { customer: demoCustomer, agent } = await getDemoActors();
-  const waCustomer = await getWhatsAppCustomer();
-  const customer =
-    !asAgent && !isInternal && ticket.customerId === waCustomer?.id ? waCustomer : demoCustomer;
+  const { agent } = await getDemoActors();
   const now = new Date();
 
   await prisma.ticketMessage.create({
@@ -332,7 +375,7 @@ export async function replyToTicketAction(raw: unknown) {
       isInternal,
       senderType: isInternal ? "INTERNAL" : asAgent ? "SUPPORT" : "CUSTOMER",
       agentId: asAgent || isInternal ? agent?.id : null,
-      customerId: !asAgent && !isInternal ? customer?.id : null,
+      customerId: !asAgent && !isInternal ? ticket.customerId : null,
       createdAt: now,
       attachments: attachments?.length
         ? {
@@ -369,6 +412,22 @@ export async function replyToTicketAction(raw: unknown) {
       await prisma.statusHistory.create({
         data: { ticketId, fromStatus: "RESOLVED", toStatus: "OPEN", note: "Reopened by reply" },
       });
+    }
+
+    // Agent replies also notify the POC on WhatsApp (demo activity trail)
+    if (asAgent) {
+      const poc = await prisma.customer.findUnique({ where: { id: ticket.customerId } });
+      if (poc?.phone) {
+        await prisma.ticketActivity.create({
+          data: {
+            ticketId,
+            action: "WHATSAPP_POC_UPDATE",
+            description: `Update pushed to POC ${poc.name} on WhatsApp ${poc.phone}`,
+            agentId: agent?.id,
+            metadata: { phone: poc.phone, customerId: poc.id },
+          },
+        });
+      }
     }
   }
 
@@ -587,6 +646,7 @@ export async function getWhatsAppTicketSnapshot(ticketNumber = WHATSAPP_DEMO_TIC
       subject: ticket.subject,
       description: ticket.description,
       status: ticket.status,
+      source: ticket.source,
       createdAt: ticket.createdAt,
       customer: ticket.customer,
       assignee: ticket.assignee,

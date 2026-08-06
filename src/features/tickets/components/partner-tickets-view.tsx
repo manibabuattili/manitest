@@ -57,7 +57,7 @@ export function PartnerTicketsView({
   page: number;
   totalPages: number;
   companies: string[];
-  customers: { id: string; name: string; company: string }[];
+  customers: { id: string; name: string; company: string; phone: string | null }[];
   components: { id: string; name: string }[];
   labels: { id: string; name: string }[];
   agents: { id: string; name: string }[];

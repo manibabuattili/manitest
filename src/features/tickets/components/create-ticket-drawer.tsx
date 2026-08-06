@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { MessageCircle } from "lucide-react";
 import { Sheet, SheetBody, SheetFooter, SheetHeader } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import { createTicketAction } from "@/features/tickets/actions";
 import { filesToAttachmentInputs } from "@/lib/attachments";
 
 type Option = { id: string; name: string };
-type CustomerOption = Option & { company: string };
+type CustomerOption = Option & { company: string; phone: string | null };
 
 export function CreateTicketDrawer({
   open,
@@ -55,7 +56,14 @@ export function CreateTicketDrawer({
     [account, customers]
   );
 
+  const selectedPoc = useMemo(
+    () => customers.find((c) => c.id === pocId) ?? null,
+    [customers, pocId]
+  );
+
   const canSubmit =
+    !!account &&
+    !!pocId &&
     subject.trim().length >= 3 &&
     description.trim().length >= 10 &&
     !!componentId &&
@@ -74,6 +82,10 @@ export function CreateTicketDrawer({
   }
 
   function onSubmit() {
+    if (!pocId) {
+      toast.error("Select a POC — they receive WhatsApp ticket updates");
+      return;
+    }
     startTransition(async () => {
       try {
         const attachments = await filesToAttachmentInputs(files.map((f) => f.file));
@@ -82,21 +94,40 @@ export function CreateTicketDrawer({
           description: description.trim(),
           componentId,
           labelIds: labelId ? [labelId] : [],
-          customerId: pocId || undefined,
+          customerId: pocId,
           accountCompany: account || undefined,
           assigneeId: assigneeId || undefined,
           priority: "MEDIUM",
           source: "PORTAL",
+          notifyWhatsApp: true,
           attachments,
         });
         if (!result.ok) {
           toast.error("Could not create ticket");
           return;
         }
-        toast.success("Ticket Raised Successfully");
+
+        const number = result.ticket.ticketNumber;
+        if (result.whatsapp.notified) {
+          toast.success(
+            `Ticket ${number} raised. Updates sent to ${result.whatsapp.customerName} on WhatsApp ${result.whatsapp.phone}`,
+            {
+              duration: 8000,
+              action: {
+                label: "Open POC WhatsApp",
+                onClick: () => {
+                  window.open(result.whatsapp.deepLink, "_blank");
+                },
+              },
+            }
+          );
+        } else {
+          toast.success(`Ticket ${number} raised successfully`);
+        }
+
         reset();
         onOpenChange(false);
-        router.push(`/partner/support/${result.ticket.ticketNumber}`);
+        router.push(`/partner/support/${number}`);
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Upload failed");
@@ -108,14 +139,22 @@ export function CreateTicketDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetHeader onClose={() => onOpenChange(false)}>
         <h2 className="text-lg font-semibold text-gray-900">Create Ticket</h2>
-        <p className="text-sm text-gray-500">Raise a ticket for a customer</p>
+        <p className="text-sm text-gray-500">
+          Raise a ticket for a customer POC — they get WhatsApp updates
+        </p>
       </SheetHeader>
       <SheetBody className="space-y-4">
         <div className="space-y-1.5">
           <Label>
             Select Account <span className="text-red-500">*</span>
           </Label>
-          <Select value={account} onValueChange={setAccount}>
+          <Select
+            value={account}
+            onValueChange={(v) => {
+              setAccount(v);
+              setPocId("");
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select" />
             </SelectTrigger>
@@ -140,10 +179,32 @@ export function CreateTicketDrawer({
               {pocOptions.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
+                  {c.phone ? ` · ${c.phone}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {selectedPoc?.phone ? (
+            <div className="mt-2 flex items-start gap-2 rounded-xl border border-[#25D366]/30 bg-[#ecfdf3] px-3 py-2.5 text-sm text-[#065f46]">
+              <MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">WhatsApp updates → {selectedPoc.phone}</p>
+                <p className="mt-0.5 text-xs text-[#047857]">
+                  {selectedPoc.name} is the POC for this ticket. Ticket creation and every support
+                  reply will be sent to their WhatsApp so they can view &amp; respond.
+                </p>
+              </div>
+            </div>
+          ) : selectedPoc ? (
+            <p className="text-xs text-amber-700">
+              This POC has no WhatsApp number on file. Add a phone in seed/customer data to enable
+              notifications.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">
+              Choose the person who should receive WhatsApp updates and reply on this ticket.
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label>
@@ -205,9 +266,7 @@ export function CreateTicketDrawer({
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>
-            Assign To <span className="text-red-500">*</span>
-          </Label>
+          <Label>Assign To</Label>
           <Select value={assigneeId} onValueChange={setAssigneeId}>
             <SelectTrigger>
               <SelectValue placeholder="Select" />
@@ -233,7 +292,7 @@ export function CreateTicketDrawer({
           Cancel
         </Button>
         <Button disabled={!canSubmit} onClick={onSubmit}>
-          {pending ? "Creating..." : "Create"}
+          {pending ? "Creating..." : "Create & notify WhatsApp"}
         </Button>
       </SheetFooter>
     </Sheet>

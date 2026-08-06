@@ -37,7 +37,7 @@ type TicketDetail = {
   slaBreached: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
-  customer: { name: string; company: string };
+  customer: { name: string; company: string; phone?: string | null };
   assignee: { id: string; name: string } | null;
   component: { id: string; name: string } | null;
   labels: { label: { id: string; name: string; color: string } }[];
@@ -171,6 +171,9 @@ export function PartnerTicketDetailView({
             <DetailRow label="ID" value={ticket.ticketNumber} />
             <DetailRow label="Requester" value={ticket.customer.name} />
             <DetailRow label="Company" value={ticket.customer.company} />
+            {ticket.customer.phone ? (
+              <DetailRow label="POC WhatsApp" value={ticket.customer.phone} />
+            ) : null}
             <div className="flex items-center justify-between gap-3">
               <span className="text-gray-500">Channel</span>
               <ChannelBadge source={ticket.source} />

@@ -113,6 +113,7 @@ async function main() {
               ? "shivani@bluconn.com"
               : `${name.toLowerCase().replace(/\s+/g, ".")}@${COMPANIES[i].toLowerCase().replace(/[^a-z]/g, "")}.com`,
           company: COMPANIES[i],
+          phone: `+91 98${String(10000000 + i * 137).slice(0, 8)}`,
           avatarUrl: `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
         },
       })
@@ -125,6 +126,7 @@ async function main() {
       name: "Ravi Kumar",
       email: "ravi.site@jmrconstructions.com",
       company: "JMR Constructions",
+      phone: "+91 98765 43210",
       avatarUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=Ravi%20Kumar",
     },
   });
