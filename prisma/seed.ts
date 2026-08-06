@@ -108,13 +108,27 @@ async function main() {
       prisma.customer.create({
         data: {
           name,
-          email: `${name.toLowerCase().replace(/\s+/g, ".")}@${COMPANIES[i].toLowerCase().replace(/[^a-z]/g, "")}.com`,
+          email:
+            name === "Shivani"
+              ? "shivani@bluconn.com"
+              : `${name.toLowerCase().replace(/\s+/g, ".")}@${COMPANIES[i].toLowerCase().replace(/[^a-z]/g, "")}.com`,
           company: COMPANIES[i],
           avatarUrl: `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
         },
       })
     )
   );
+
+  // Site engineer used by WhatsApp support demo
+  const siteEngineer = await prisma.customer.create({
+    data: {
+      name: "Ravi Kumar",
+      email: "ravi.site@jmrconstructions.com",
+      company: "JMR Constructions",
+      avatarUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=Ravi%20Kumar",
+    },
+  });
+  customers.push(siteEngineer);
 
   const agents = await Promise.all(
     AGENT_NAMES.map((name, i) =>
@@ -141,6 +155,8 @@ async function main() {
   let totalMessages = 0;
 
   for (let i = 0; i < 75; i++) {
+    // Reserve SUP-2027 for the WhatsApp support demo flow
+    if (ticketCounter === 2027) ticketCounter += 1;
     const customer = customers[i % customers.length];
     const status = statuses[i % statuses.length];
     const priority = priorities[i % priorities.length];

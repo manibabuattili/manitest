@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LifeBuoy, Headphones } from "lucide-react";
+import { LifeBuoy, Headphones, MessageCircle } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -18,13 +18,14 @@ export default function HomePage() {
         </div>
 
         <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
-          Customer & partner support in one place
+          Customer, partner & WhatsApp support in one place
         </h1>
         <p className="mt-4 max-w-xl text-base text-gray-600">
-          Raise tickets, track SLA, and collaborate in a Freshdesk-style workspace built for Bluconn.
+          Raise tickets from the customer portal or WhatsApp, track SLA, and collaborate in a
+          Freshdesk-style workspace built for Bluconn.
         </p>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/support"
             className="group rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
@@ -54,6 +55,22 @@ export default function HomePage() {
             </p>
             <span className="mt-4 inline-block text-sm font-semibold text-brand-700 group-hover:underline">
               Open partner support →
+            </span>
+          </Link>
+
+          <Link
+            href="/whatsapp"
+            className="group rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-[#25D366]/60 hover:shadow-md sm:col-span-2 lg:col-span-1"
+          >
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-[#ecfdf3] text-[#075E54]">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">WhatsApp Support</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Mobile chat experience — keyword Support, in-app form, and ticket updates.
+            </p>
+            <span className="mt-4 inline-block text-sm font-semibold text-[#075E54] group-hover:underline">
+              Open WhatsApp demo →
             </span>
           </Link>
         </div>

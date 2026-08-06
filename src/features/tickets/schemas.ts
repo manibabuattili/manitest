@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export const attachmentInputSchema = z.object({
+  fileName: z.string().min(1),
+  fileSize: z.number().int().nonnegative().default(0),
+  mimeType: z.string().default("image/png"),
+  url: z.string().optional(),
+});
+
 export const createTicketSchema = z.object({
   subject: z.string().min(3, "Subject is required"),
   description: z.string().min(10, "Description is required"),
@@ -9,6 +16,10 @@ export const createTicketSchema = z.object({
   customerId: z.string().optional(),
   assigneeId: z.string().optional(),
   accountCompany: z.string().optional(),
+  attachments: z.array(attachmentInputSchema).optional(),
+  source: z.enum(["PORTAL", "WHATSAPP"]).default("PORTAL"),
+  preferredTicketNumber: z.string().optional(),
+  skipAutoReply: z.boolean().optional(),
 });
 
 export const replySchema = z.object({
@@ -16,6 +27,7 @@ export const replySchema = z.object({
   body: z.string().min(1, "Message is required"),
   isInternal: z.boolean().default(false),
   asAgent: z.boolean().default(false),
+  attachments: z.array(attachmentInputSchema).optional(),
 });
 
 export const updateTicketSchema = z.object({

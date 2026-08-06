@@ -32,6 +32,8 @@ export const STATUS_FLOW: TicketStatus[] = [
 
 export const DEMO_CUSTOMER_EMAIL = "shivani@bluconn.com";
 export const DEMO_AGENT_EMAIL = "olivia@untitledui.com";
+export const WHATSAPP_CUSTOMER_EMAIL = "ravi.site@jmrconstructions.com";
+export const WHATSAPP_DEMO_TICKET = "SUP-2027";
 
 export const COMPONENT_NAMES = [
   "Attendance",

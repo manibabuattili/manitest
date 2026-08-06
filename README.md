@@ -1,6 +1,6 @@
 # Bluconn Support Portal MVP
 
-Customer Portal + Internal Partner Portal for Bluconn support ticketing.
+Customer Portal + Internal Partner Portal + WhatsApp support channel for Bluconn ticketing.
 
 ## Stack
 
@@ -31,18 +31,28 @@ Open [http://localhost:3000](http://localhost:3000).
 | Customer — Ticket detail | `/support/SUP-xxxx` |
 | Partner — Support queue | `/partner/support` |
 | Partner — Ticket detail | `/partner/support/SUP-xxxx` |
+| WhatsApp — Mobile support chat | `/whatsapp` |
 
 ## MVP features
 
-- Raise ticket (customer modal + partner drawer)
+- Raise ticket (customer modal + partner drawer + WhatsApp in-app form)
 - Ticket list with search, filters, pagination
 - Ticket detail with conversation timeline
 - Replies + `@internal` notes (partner)
 - Assign to me, status/priority/label/component updates, close ticket
 - SLA countdown + breached badge (Low 7d / Medium 3d / High 1d / Critical 4h)
-- Seed data: 20 customers, 5 agents, 75 tickets, ~500 messages
+- WhatsApp keyword flow (`Support`) with in-app browser form & View & Reply
+- Seed data: 20+ customers, 5 agents, 75 tickets, ~500 messages (SUP-2027 reserved for WhatsApp demo)
+
+## WhatsApp demo (Site Engineer)
+
+1. Open `/whatsapp` and send **Support**
+2. Tap **Raise Support Ticket** → fill form (or Prefill) → **Create Ticket** → `SUP-2027`
+3. Open Partner Portal → `SUP-2027` → Assign to Me, label Bug, component Attendance, reply
+4. Return to WhatsApp → **View & Reply** → customer reply with attachment
 
 ## Demo actors
 
 - Customer flow uses seeded customers (default create uses first/demo customer)
+- WhatsApp site engineer: `ravi.site@jmrconstructions.com`
 - Partner agent: `olivia@untitledui.com`

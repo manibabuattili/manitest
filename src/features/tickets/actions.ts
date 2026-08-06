@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import type { Prisma, TicketPriority, TicketStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { DEMO_AGENT_EMAIL, DEMO_CUSTOMER_EMAIL, SLA_HOURS } from "@/lib/constants";
+import {
+  DEMO_AGENT_EMAIL,
+  DEMO_CUSTOMER_EMAIL,
+  SLA_HOURS,
+  WHATSAPP_CUSTOMER_EMAIL,
+  WHATSAPP_DEMO_TICKET,
+} from "@/lib/constants";
 import { createTicketSchema, replySchema, updateTicketSchema } from "./schemas";
 
 async function nextTicketNumber() {
@@ -13,6 +19,17 @@ async function nextTicketNumber() {
   });
   const n = latest ? parseInt(latest.ticketNumber.replace("SUP-", ""), 10) + 1 : 2000;
   return `SUP-${n}`;
+}
+
+async function deleteTicketCascade(ticketNumber: string) {
+  const existing = await prisma.ticket.findUnique({ where: { ticketNumber } });
+  if (!existing) return;
+  await prisma.attachment.deleteMany({ where: { ticketId: existing.id } });
+  await prisma.ticketMessage.deleteMany({ where: { ticketId: existing.id } });
+  await prisma.ticketActivity.deleteMany({ where: { ticketId: existing.id } });
+  await prisma.statusHistory.deleteMany({ where: { ticketId: existing.id } });
+  await prisma.ticketLabel.deleteMany({ where: { ticketId: existing.id } });
+  await prisma.ticket.delete({ where: { id: existing.id } });
 }
 
 function slaDueAt(priority: TicketPriority, from = new Date()) {
@@ -25,6 +42,15 @@ export async function getDemoActors() {
   let agent = await prisma.supportAgent.findFirst({ where: { email: DEMO_AGENT_EMAIL } });
   if (!agent) agent = await prisma.supportAgent.findFirst();
   return { customer, agent };
+}
+
+export async function getWhatsAppCustomer() {
+  let customer = await prisma.customer.findFirst({ where: { email: WHATSAPP_CUSTOMER_EMAIL } });
+  if (!customer) {
+    customer = await prisma.customer.findFirst({ where: { company: { contains: "JMR", mode: "insensitive" } } });
+  }
+  if (!customer) customer = await prisma.customer.findFirst();
+  return customer;
 }
 
 export async function getMetaOptions() {
@@ -174,6 +200,10 @@ export async function createTicketAction(raw: unknown) {
   if (!demoCustomer) return { ok: false as const, error: { subject: ["No customer found. Seed the database."] } };
 
   let customer = demoCustomer;
+  if (data.source === "WHATSAPP") {
+    const waCustomer = await getWhatsAppCustomer();
+    if (waCustomer) customer = waCustomer;
+  }
   if (data.customerId) {
     const found = await prisma.customer.findUnique({ where: { id: data.customerId } });
     if (found) customer = found;
@@ -183,8 +213,15 @@ export async function createTicketAction(raw: unknown) {
   }
 
   const priority = data.priority ?? "MEDIUM";
-  const ticketNumber = await nextTicketNumber();
+  const preferred =
+    data.preferredTicketNumber ||
+    (data.source === "WHATSAPP" ? WHATSAPP_DEMO_TICKET : undefined);
+  if (preferred) {
+    await deleteTicketCascade(preferred);
+  }
+  const ticketNumber = preferred ?? (await nextTicketNumber());
   const now = new Date();
+  const skipAutoReply = data.skipAutoReply ?? data.source === "WHATSAPP";
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -203,18 +240,42 @@ export async function createTicketAction(raw: unknown) {
       labels: data.labelIds?.length
         ? { create: data.labelIds.map((labelId) => ({ labelId })) }
         : undefined,
+      attachments: data.attachments?.length
+        ? {
+            create: data.attachments.map((a) => ({
+              fileName: a.fileName,
+              fileSize: a.fileSize || 0,
+              mimeType: a.mimeType || "image/png",
+              url: a.url || `/demo/${a.fileName}`,
+            })),
+          }
+        : undefined,
       messages: {
         create: [
           {
             body: data.description,
             senderType: "CUSTOMER",
             customerId: customer.id,
+            attachments: data.attachments?.length
+              ? {
+                  create: data.attachments.map((a) => ({
+                    fileName: a.fileName,
+                    fileSize: a.fileSize || 0,
+                    mimeType: a.mimeType || "image/png",
+                    url: a.url || `/demo/${a.fileName}`,
+                  })),
+                }
+              : undefined,
           },
-          {
-            body: "Hi! Thanks for reaching out — we've received your ticket and will get back to you shortly.",
-            senderType: "SUPPORT",
-            agentId: agent?.id,
-          },
+          ...(skipAutoReply
+            ? []
+            : [
+                {
+                  body: "Hi! Thanks for reaching out — we've received your ticket and will get back to you shortly.",
+                  senderType: "SUPPORT" as const,
+                  agentId: agent?.id,
+                },
+              ]),
         ],
       },
       statusHistory: {
@@ -223,8 +284,12 @@ export async function createTicketAction(raw: unknown) {
       activities: {
         create: {
           action: "TICKET_CREATED",
-          description: `Ticket ${ticketNumber} created`,
+          description:
+            data.source === "WHATSAPP"
+              ? `Ticket ${ticketNumber} created via WhatsApp`
+              : `Ticket ${ticketNumber} created`,
           agentId: agent?.id,
+          metadata: { source: data.source ?? "PORTAL" },
         },
       },
     },
@@ -232,6 +297,7 @@ export async function createTicketAction(raw: unknown) {
 
   revalidatePath("/support");
   revalidatePath("/partner/support");
+  revalidatePath("/whatsapp");
   return { ok: true as const, ticket };
 }
 
@@ -241,12 +307,15 @@ export async function replyToTicketAction(raw: unknown) {
     return { ok: false as const, error: "Invalid message" };
   }
 
-  const { ticketId, body, isInternal, asAgent } = parsed.data;
+  const { ticketId, body, isInternal, asAgent, attachments } = parsed.data;
   const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
   if (!ticket) return { ok: false as const, error: "Ticket not found" };
   if (ticket.status === "CLOSED") return { ok: false as const, error: "Closed tickets cannot receive replies" };
 
-  const { customer, agent } = await getDemoActors();
+  const { customer: demoCustomer, agent } = await getDemoActors();
+  const waCustomer = await getWhatsAppCustomer();
+  const customer =
+    !asAgent && !isInternal && ticket.customerId === waCustomer?.id ? waCustomer : demoCustomer;
   const now = new Date();
 
   await prisma.ticketMessage.create({
@@ -258,6 +327,17 @@ export async function replyToTicketAction(raw: unknown) {
       agentId: asAgent || isInternal ? agent?.id : null,
       customerId: !asAgent && !isInternal ? customer?.id : null,
       createdAt: now,
+      attachments: attachments?.length
+        ? {
+            create: attachments.map((a) => ({
+              fileName: a.fileName,
+              fileSize: a.fileSize || 0,
+              mimeType: a.mimeType || "image/png",
+              url: a.url || `/demo/${a.fileName}`,
+              ticketId,
+            })),
+          }
+        : undefined,
     },
   });
 
@@ -298,6 +378,7 @@ export async function replyToTicketAction(raw: unknown) {
   revalidatePath(`/partner/support/${ticket.ticketNumber}`);
   revalidatePath("/support");
   revalidatePath("/partner/support");
+  revalidatePath("/whatsapp");
   return { ok: true as const };
 }
 
@@ -379,6 +460,7 @@ export async function updateTicketAction(raw: unknown) {
   revalidatePath("/partner/support");
   revalidatePath(`/support/${ticket.ticketNumber}`);
   revalidatePath("/support");
+  revalidatePath("/whatsapp");
   return { ok: true as const };
 }
 
@@ -390,4 +472,58 @@ export async function assignToMeAction(ticketId: string) {
 
 export async function closeTicketAction(ticketId: string) {
   return updateTicketAction({ ticketId, status: "CLOSED" });
+}
+
+/** Poll helper for WhatsApp demo — returns ticket + latest public support reply after creation. */
+export async function getWhatsAppTicketSnapshot(ticketNumber = WHATSAPP_DEMO_TICKET) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { ticketNumber },
+    include: {
+      customer: true,
+      assignee: true,
+      component: true,
+      labels: { include: { label: true } },
+      attachments: true,
+      messages: {
+        where: { isInternal: false, senderType: { not: "SYSTEM" } },
+        include: {
+          customer: true,
+          agent: true,
+          attachments: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+  if (!ticket) return { ok: false as const, ticket: null };
+
+  const supportReplies = ticket.messages.filter((m) => m.senderType === "SUPPORT");
+  const latestSupport = supportReplies[supportReplies.length - 1] ?? null;
+
+  return {
+    ok: true as const,
+    ticket: {
+      id: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      subject: ticket.subject,
+      description: ticket.description,
+      status: ticket.status,
+      createdAt: ticket.createdAt,
+      customer: ticket.customer,
+      assignee: ticket.assignee,
+      component: ticket.component,
+      labels: ticket.labels,
+      attachments: ticket.attachments,
+      messages: ticket.messages,
+      latestSupportReply: latestSupport
+        ? {
+            id: latestSupport.id,
+            body: latestSupport.body,
+            createdAt: latestSupport.createdAt,
+            agentName: latestSupport.agent?.name ?? "Bluconn Support",
+          }
+        : null,
+      supportReplyCount: supportReplies.length,
+    },
+  };
 }

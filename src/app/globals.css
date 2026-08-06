@@ -44,3 +44,14 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+@keyframes waSlideUp {
+  from {
+    opacity: 0.4;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
