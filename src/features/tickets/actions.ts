@@ -232,10 +232,13 @@ export async function createTicketAction(raw: unknown) {
   const skipAutoReply =
     data.skipAutoReply ?? (data.source === "WHATSAPP" || notifyWhatsApp);
 
+  const partnerRaised = data.source === "PORTAL" && Boolean(data.customerId || data.accountCompany);
   const pocPhoneLabel = customer.phone || "WhatsApp";
   const partnerWhatsAppIntro = notifyWhatsApp
-    ? `Hi ${customer.name}, Bluconn Support has opened ticket ${ticketNumber} on your behalf.\n\nSubject: ${data.subject}\n\nWe'll send progress updates to you on WhatsApp${customer.phone ? ` (${customer.phone})` : ""}. Tap View & Reply anytime to respond.`
-    : null;
+    ? `Hi ${customer.name}, Bluconn Support has opened ticket ${ticketNumber} on your behalf.\n\nSubject: ${data.subject}\n\n${data.description}\n\nWe'll send progress updates to you on WhatsApp${customer.phone ? ` (${customer.phone})` : ""}. Tap View & Reply anytime to respond.`
+    : partnerRaised
+      ? `Hi ${customer.name},\n\nBluconn Support has opened ticket ${ticketNumber}.\n\nSubject: ${data.subject}\n\n${data.description}`
+      : null;
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -252,7 +255,7 @@ export async function createTicketAction(raw: unknown) {
       componentId: data.componentId ?? null,
       lastMessageAt: now,
       lastMessagePreview: (partnerWhatsAppIntro ?? data.description).slice(0, 120),
-      unreadCount: 1,
+      unreadCount: partnerRaised ? 0 : 1,
       labels: data.labelIds?.length
         ? { create: data.labelIds.map((labelId) => ({ labelId })) }
         : undefined,
@@ -267,40 +270,51 @@ export async function createTicketAction(raw: unknown) {
           }
         : undefined,
       messages: {
-        create: [
-          {
-            body: data.description,
-            senderType: "CUSTOMER",
-            customerId: customer.id,
-            attachments: data.attachments?.length
-              ? {
-                  create: data.attachments.map((a) => ({
-                    fileName: a.fileName,
-                    fileSize: a.fileSize || 0,
-                    mimeType: a.mimeType || "image/png",
-                    url: a.url || `/demo/${a.fileName}`,
-                  })),
-                }
-              : undefined,
-          },
-          ...(partnerWhatsAppIntro
-            ? [
-                {
-                  body: partnerWhatsAppIntro,
-                  senderType: "SUPPORT" as const,
-                  agentId: agent?.id,
-                },
-              ]
-            : skipAutoReply
-              ? []
-              : [
-                  {
-                    body: "Hi! Thanks for reaching out — we've received your ticket and will get back to you shortly.",
-                    senderType: "SUPPORT" as const,
-                    agentId: agent?.id,
-                  },
-                ]),
-        ],
+        create: partnerRaised
+          ? [
+              // Partner/agent-raised: agent message is the initial message
+              {
+                body: partnerWhatsAppIntro ?? data.description,
+                senderType: "SUPPORT" as const,
+                agentId: agent?.id,
+                attachments: data.attachments?.length
+                  ? {
+                      create: data.attachments.map((a) => ({
+                        fileName: a.fileName,
+                        fileSize: a.fileSize || 0,
+                        mimeType: a.mimeType || "image/png",
+                        url: a.url || `/demo/${a.fileName}`,
+                      })),
+                    }
+                  : undefined,
+              },
+            ]
+          : [
+              {
+                body: data.description,
+                senderType: "CUSTOMER",
+                customerId: customer.id,
+                attachments: data.attachments?.length
+                  ? {
+                      create: data.attachments.map((a) => ({
+                        fileName: a.fileName,
+                        fileSize: a.fileSize || 0,
+                        mimeType: a.mimeType || "image/png",
+                        url: a.url || `/demo/${a.fileName}`,
+                      })),
+                    }
+                  : undefined,
+              },
+              ...(skipAutoReply
+                ? []
+                : [
+                    {
+                      body: "Hi! Thanks for reaching out — we've received your ticket and will get back to you shortly.",
+                      senderType: "SUPPORT" as const,
+                      agentId: agent?.id,
+                    },
+                  ]),
+            ],
       },
       statusHistory: {
         create: { fromStatus: null, toStatus: "OPEN" },
@@ -312,9 +326,11 @@ export async function createTicketAction(raw: unknown) {
             description:
               data.source === "WHATSAPP"
                 ? `Ticket ${ticketNumber} created via WhatsApp`
-                : `Ticket ${ticketNumber} created`,
+                : partnerRaised
+                  ? `Ticket ${ticketNumber} created by support agent for POC ${customer.name}`
+                  : `Ticket ${ticketNumber} created`,
             agentId: agent?.id,
-            metadata: { source: data.source ?? "PORTAL" },
+            metadata: { source: data.source ?? "PORTAL", partnerRaised },
           },
           ...(notifyWhatsApp
             ? [

@@ -81,11 +81,12 @@ function WhatsAppSupportPageInner() {
                 Scenario A · Field raise
               </p>
               <ol className="mt-2 space-y-1.5 text-sm text-gray-600">
-                <li>1. Send <strong>Support</strong> → Raise Support Ticket → create SUP-2027.</li>
-                <li>2. Partner Portal replies → View &amp; Reply here.</li>
+                <li>1. Open Scenario A, then send the keyword <strong>Support</strong>.</li>
+                <li>2. Tap Raise Support Ticket → fill the form → create ticket.</li>
+                <li>3. Partner Portal replies → View &amp; Reply here.</li>
               </ol>
               <Link
-                href="/whatsapp?ticket=SUP-2027"
+                href="/whatsapp?scenario=a"
                 className="mt-3 inline-flex rounded-lg bg-[#075E54] px-3 py-2 text-sm font-semibold text-white hover:bg-[#064e47]"
               >
                 Open Scenario A →

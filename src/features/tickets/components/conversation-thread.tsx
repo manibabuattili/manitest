@@ -116,6 +116,16 @@ export function ConversationThread({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-2 flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
+        <span>
+          Viewing as{" "}
+          <span className="font-semibold text-gray-800">
+            {asAgent ? "Bluconn Support (agent)" : "Customer"}
+          </span>
+        </span>
+        <span>Your messages appear on the right</span>
+      </div>
+
       <div className="flex-1 space-y-4 overflow-y-auto px-1 py-2">
         {messages.map((m) => {
           if (m.senderType === "SYSTEM") {
@@ -132,10 +142,12 @@ export function ConversationThread({
             return (
               <div key={m.id} className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
                 <div className="mb-1 flex items-center justify-between text-xs text-brand-700">
-                  <span className="font-semibold">Internal note · {m.agent?.name ?? "Support"}</span>
+                  <span className="font-semibold">
+                    Internal note · {m.agent?.name ?? "Bluconn Support"}
+                  </span>
                   <span>{format(new Date(m.createdAt), "h:mm a")}</span>
                 </div>
-                <p className="text-sm text-gray-800">{m.body}</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{m.body}</p>
                 {m.attachments && m.attachments.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {m.attachments.map((a) => (
@@ -148,27 +160,42 @@ export function ConversationThread({
           }
 
           const isSupport = m.senderType === "SUPPORT";
-          const name = isSupport ? m.agent?.name ?? "Bluconn Support" : m.customer?.name ?? "Customer";
+          // Partner portal: agent on right. Customer portal: customer on right.
+          const isMine = asAgent ? isSupport : !isSupport;
+          const displayName = isSupport
+            ? "Bluconn Support"
+            : m.customer?.name ?? "Customer";
           const avatar = isSupport ? m.agent?.avatarUrl : m.customer?.avatarUrl;
+          const subtitle = isSupport
+            ? m.agent?.name
+              ? `Agent · ${m.agent.name}`
+              : "Support team"
+            : "Customer";
 
           return (
             <div
               key={m.id}
-              className={cn("flex gap-3", isSupport ? "flex-row-reverse" : "flex-row")}
+              className={cn("flex gap-3", isMine ? "flex-row-reverse" : "flex-row")}
             >
               <Avatar className="h-8 w-8">
                 <AvatarImage src={avatar ?? undefined} />
-                <AvatarFallback>{name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
-              <div className={cn("max-w-[75%]", isSupport ? "items-end" : "items-start")}>
-                <div className={cn("mb-1 flex items-center gap-2 text-xs text-gray-500", isSupport && "justify-end")}>
-                  <span className="font-medium text-gray-700">{isSupport ? "Bluconn Support" : name}</span>
+              <div className={cn("max-w-[75%]", isMine ? "items-end" : "items-start")}>
+                <div
+                  className={cn(
+                    "mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500",
+                    isMine && "justify-end"
+                  )}
+                >
+                  <span className="font-semibold text-gray-800">{displayName}</span>
+                  <span className="text-gray-400">{subtitle}</span>
                   <span>{format(new Date(m.createdAt), "h:mm a")}</span>
                 </div>
                 <div
                   className={cn(
-                    "rounded-2xl px-4 py-3 text-sm text-gray-800 shadow-sm",
-                    isSupport
+                    "rounded-2xl px-4 py-3 text-sm text-gray-800 shadow-sm whitespace-pre-wrap",
+                    isMine
                       ? "rounded-tr-md border border-gray-200 bg-white"
                       : "rounded-tl-md bg-gray-100"
                   )}
@@ -176,7 +203,7 @@ export function ConversationThread({
                   {m.body}
                 </div>
                 {m.attachments && m.attachments.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className={cn("mt-2 flex flex-wrap gap-2", isMine && "justify-end")}>
                     {m.attachments.map((a) => (
                       <AttachmentChip key={a.id} fileName={a.fileName} url={a.url} mimeType={a.mimeType} />
                     ))}
@@ -204,7 +231,7 @@ export function ConversationThread({
                 send();
               }
             }}
-            placeholder="Message"
+            placeholder={asAgent ? "Reply as Bluconn Support…" : "Reply as customer…"}
             className="min-h-[72px] w-full resize-none border-0 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
           />
           {files.length > 0 && (

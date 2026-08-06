@@ -160,10 +160,43 @@ export function WhatsAppSupportDemo() {
       const params = new URLSearchParams(window.location.search);
       const fromQuery = params.get("ticket");
       const roleParam = params.get("role") === "poc" ? "poc" : null;
+      const scenarioA = params.get("scenario") === "a";
       const scenarioB = params.get("scenario") === "b";
+
+      // Scenario A: fresh field raise — keyword "Support" to open the form
+      if (scenarioA) {
+        try {
+          sessionStorage.removeItem(STORAGE_KEY);
+          // keep bluconn-wa-poc-ticket for Scenario B
+        } catch {
+          /* ignore */
+        }
+        setRole("field");
+        roleRef.current = "field";
+        setTicketNumber(null);
+        setTicketId(null);
+        setTicketSnap(null);
+        setPocLabel(null);
+        setBrowser(null);
+        setMessages([
+          {
+            id: "welcome",
+            from: "bot",
+            kind: "text",
+            text: "Hi! You're chatting with Bluconn Support. Type Support if you need help with attendance, payroll, or any Bluconn product issue.",
+            time: new Date(),
+          },
+        ]);
+        return;
+      }
+
       const saved = loadPersisted();
 
-      let number = fromQuery || (scenarioB ? null : saved?.ticketNumber) || null;
+      let number = fromQuery || (scenarioB ? null : null) || null;
+      // Don't auto-restore field tickets when opening plain /whatsapp — only with ticket= or scenario=b
+      if (!number && !scenarioB && saved?.role === "field" && fromQuery) {
+        number = saved.ticketNumber;
+      }
       if (scenarioB && !number) {
         try {
           const raw = localStorage.getItem("bluconn-wa-poc-ticket");
@@ -181,11 +214,40 @@ export function WhatsAppSupportDemo() {
       }
 
       const nextRole: "field" | "poc" =
-        roleParam || (scenarioB ? "poc" : null) || saved?.role || "field";
+        roleParam || (scenarioB ? "poc" : null) || (fromQuery && saved?.role) || "field";
+
+      if (scenarioB && !number) {
+        setRole("poc");
+        roleRef.current = "poc";
+        setMessages([
+          {
+            id: "poc-empty",
+            from: "bot",
+            kind: "text",
+            text: "No partner-raised ticket yet. Ask a support agent to Raise Ticket in the Partner Portal for a POC, then open Scenario B again.",
+            time: new Date(),
+          },
+        ]);
+        return;
+      }
+
       if (!number) return;
 
       const result = await getWhatsAppTicketSnapshot(number);
-      if (!result.ok || !result.ticket) return;
+      if (!result.ok || !result.ticket) {
+        if (scenarioB) {
+          setMessages([
+            {
+              id: "poc-missing",
+              from: "bot",
+              kind: "text",
+              text: `Could not find ticket ${number}. Raise a ticket from Partner Portal, then reopen Scenario B.`,
+              time: new Date(),
+            },
+          ]);
+        }
+        return;
+      }
 
       // Fresh deep-link / Scenario B wins over stale session seen-ids
       if (saved?.seenSupportIds && !roleParam && !fromQuery && !scenarioB) {
@@ -246,7 +308,6 @@ export function WhatsAppSupportDemo() {
 
         if (firstSupport) seenSupportRef.current.add(firstSupport.id);
 
-        // Later agent replies show as the same "new update" pattern as Scenario A
         if (latest && latest.id !== firstSupport?.id) {
           seenSupportRef.current.add(latest.id);
           restoredMessages.push({
@@ -274,6 +335,7 @@ export function WhatsAppSupportDemo() {
         return;
       }
 
+      // Field ticket deep-link (e.g. ?ticket=SUP-2027) — restore progress after raise
       persist(result.ticket.ticketNumber, result.ticket.id, "field");
 
       const restoredMessages: ChatMessage[] = [
