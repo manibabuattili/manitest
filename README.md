@@ -22,9 +22,14 @@ npm run db:setup
 npm run dev
 ```
 
-Then open **http://localhost:3002**
+Open [http://localhost:3002](http://localhost:3002).
 
-If the page was already open, hard-refresh (`Cmd/Ctrl+Shift+R`).
+## Permanent public URL (Vercel)
+
+Temporary Cloudflare tunnel links change on every restart.
+For a **stable link you can bookmark and share**, deploy to Vercel:
+
+→ See **[docs/VERCEL_SETUP.md](docs/VERCEL_SETUP.md)** (5 clicks, sign in with GitHub)
 
 ### If it still fails
 
