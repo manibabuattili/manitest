@@ -6,44 +6,47 @@ Customer Portal + Internal Partner Portal + WhatsApp support channel for Bluconn
 
 - Next.js 15 (App Router) + TypeScript
 - Tailwind CSS + shadcn-style UI
-- Prisma + PostgreSQL
-- React Hook Form patterns / Zod / Server Actions / Zustand-ready architecture
+- Prisma + **SQLite** (no Postgres install needed)
+- Zod / Server Actions
 
-## Setup
+## Local setup (copy/paste)
 
 ```bash
-# Ensure PostgreSQL is running and DATABASE_URL is set in .env
+git clone https://github.com/manibabuattili/manitest.git
+cd manitest
+git checkout cursor/whatsapp-support-ticket-eb56
+git pull
 cp .env.example .env
-
 npm install
 npm run db:setup
 npm run dev
 ```
 
-Open [http://localhost:3002](http://localhost:3002).
+Then open **http://localhost:3002**
 
-### Restart the app (port 3002)
+If the page was already open, hard-refresh (`Cmd/Ctrl+Shift+R`).
 
-If the page stops loading, run this in a terminal from the repo root:
+### If it still fails
+
+1. Confirm the terminal shows: `Local: http://localhost:3002` and `Ready`
+2. Open that exact URL (port **3002**, not 3000)
+3. Re-run setup cleanly:
+
+```bash
+rm -rf node_modules .next prisma/dev.db
+cp .env.example .env
+npm install
+npm run db:setup
+npm run dev
+```
+
+4. Paste any red error from the terminal if it still won't start
+
+### Restart helper
 
 ```bash
 npm run dev:restart
 ```
-
-Or manually:
-
-```bash
-# optional: free the port
-fuser -k 3002/tcp
-
-# start postgres if needed (Linux)
-sudo pg_ctlcluster 16 main start
-
-npm run dev
-```
-
-Keep that terminal open. Then open http://localhost:3002  
-If you’re in Cursor Cloud, use the **Ports** panel → **3002** → Open in Browser.
 
 ## Portals
 
@@ -56,26 +59,15 @@ If you’re in Cursor Cloud, use the **Ports** panel → **3002** → Open in Br
 | Partner — Ticket detail | `/partner/support/SUP-xxxx` |
 | WhatsApp — Mobile support chat | `/whatsapp` |
 
-## MVP features
-
-- Raise ticket (customer modal + partner drawer + WhatsApp in-app form)
-- Ticket list with search, filters, pagination
-- Ticket detail with conversation timeline
-- Replies + `@internal` notes (partner)
-- Assign to me, status/priority/label/component updates, close ticket
-- SLA countdown + breached badge (Low 7d / Medium 3d / High 1d / Critical 4h)
-- WhatsApp keyword flow (`Support`) with in-app browser form & View & Reply
-- Seed data: 20+ customers, 5 agents, 75 tickets, ~500 messages (SUP-2027 reserved for WhatsApp demo)
-
 ## WhatsApp demo (Site Engineer)
 
 1. Open `/whatsapp` and send **Support**
-2. Tap **Raise Support Ticket** → fill form (or Prefill) → **Create Ticket** → `SUP-2027`
+2. Tap **Raise Support Ticket** → Prefill → **Create Ticket** → `SUP-2027`
 3. Open Partner Portal → `SUP-2027` → Assign to Me, label Bug, component Attendance, reply
-4. Return to WhatsApp → **View & Reply** → customer reply with attachment
+4. Return to WhatsApp → **View & Reply** → Prefill demo reply → Send Reply
 
 ## Demo actors
 
-- Customer flow uses seeded customers (default create uses first/demo customer)
+- Customer flow uses seeded customers
 - WhatsApp site engineer: `ravi.site@jmrconstructions.com`
 - Partner agent: `olivia@untitledui.com`

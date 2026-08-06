@@ -47,7 +47,9 @@ export async function getDemoActors() {
 export async function getWhatsAppCustomer() {
   let customer = await prisma.customer.findFirst({ where: { email: WHATSAPP_CUSTOMER_EMAIL } });
   if (!customer) {
-    customer = await prisma.customer.findFirst({ where: { company: { contains: "JMR", mode: "insensitive" } } });
+    customer = await prisma.customer.findFirst({
+      where: { company: { contains: "JMR" } },
+    });
   }
   if (!customer) customer = await prisma.customer.findFirst();
   return customer;
@@ -106,10 +108,10 @@ export async function listTickets(params: TicketListParams = {}) {
   if (company && company !== "ALL") where.customer = { company };
   if (q) {
     where.OR = [
-      { ticketNumber: { contains: q, mode: "insensitive" } },
-      { subject: { contains: q, mode: "insensitive" } },
-      { customer: { name: { contains: q, mode: "insensitive" } } },
-      { customer: { company: { contains: q, mode: "insensitive" } } },
+      { ticketNumber: { contains: q } },
+      { subject: { contains: q } },
+      { customer: { name: { contains: q } } },
+      { customer: { company: { contains: q } } },
     ];
   }
 
