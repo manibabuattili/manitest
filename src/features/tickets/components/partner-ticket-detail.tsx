@@ -21,7 +21,7 @@ import {
   closeTicketAction,
   updateTicketAction,
 } from "@/features/tickets/actions";
-import { formatShortDate, formatSlaDueDays, getSlaCountdown, getSlaDueDays } from "@/lib/dates";
+import { formatShortDate, formatSlaDueDays, getSlaDueDays } from "@/lib/dates";
 import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
 import { SlaBadge, ChannelBadge } from "@/components/tickets/badges";
 import type { TicketPriority, TicketSource, TicketStatus } from "@prisma/client";
@@ -68,7 +68,6 @@ export function PartnerTicketDetailView({
   const [assigneeId, setAssigneeId] = useState(ticket.assignee?.id ?? "");
   const [labelId, setLabelId] = useState(ticket.labels[0]?.label.id ?? "");
 
-  const sla = getSlaCountdown(ticket.slaDueAt, ticket.slaBreached);
   const slaDueDays = getSlaDueDays(ticket.slaDueAt);
   const slaDueBreached = slaDueDays < 0 || ticket.slaBreached;
   const closed = ticket.status === "CLOSED";
