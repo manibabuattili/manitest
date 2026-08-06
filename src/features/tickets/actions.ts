@@ -6,10 +6,11 @@ import { prisma } from "@/lib/prisma";
 import {
   DEMO_AGENT_EMAIL,
   DEMO_CUSTOMER_EMAIL,
-  SLA_HOURS,
+  SLA_DAYS,
   WHATSAPP_CUSTOMER_EMAIL,
   WHATSAPP_DEMO_TICKET,
 } from "@/lib/constants";
+import { computeSlaDueFromDays } from "@/lib/dates";
 import { createTicketSchema, replySchema, updateTicketSchema } from "./schemas";
 
 async function nextTicketNumber() {
@@ -32,8 +33,8 @@ async function deleteTicketCascade(ticketNumber: string) {
   await prisma.ticket.delete({ where: { id: existing.id } });
 }
 
-function slaDueAt(priority: TicketPriority, from = new Date()) {
-  return new Date(from.getTime() + SLA_HOURS[priority] * 60 * 60 * 1000);
+function defaultSlaDays(priority: TicketPriority) {
+  return SLA_DAYS[priority];
 }
 
 export async function getDemoActors() {
@@ -244,7 +245,8 @@ export async function createTicketAction(raw: unknown) {
       status: "OPEN",
       priority,
       source: data.source ?? "PORTAL",
-      slaDueAt: slaDueAt(priority, now),
+      slaDays: defaultSlaDays(priority),
+      slaDueAt: computeSlaDueFromDays(now, defaultSlaDays(priority)),
       customerId: customer.id,
       assigneeId: data.assigneeId ?? null,
       componentId: data.componentId ?? null,
@@ -468,7 +470,14 @@ export async function updateTicketAction(raw: unknown) {
   if (updates.subject) data.subject = updates.subject;
   if (updates.priority) {
     data.priority = updates.priority;
-    data.slaDueAt = slaDueAt(updates.priority, ticket.createdAt);
+  }
+  if (updates.slaDays !== undefined) {
+    const days = updates.slaDays;
+    data.slaDays = days;
+    const due = computeSlaDueFromDays(ticket.createdAt, days);
+    data.slaDueAt = due;
+    data.slaBreached =
+      due < new Date() && ticket.status !== "RESOLVED" && ticket.status !== "CLOSED";
   }
   if (updates.componentId !== undefined) {
     data.component = updates.componentId

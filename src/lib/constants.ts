@@ -7,6 +7,14 @@ export const SLA_HOURS: Record<TicketPriority, number> = {
   CRITICAL: 4,
 };
 
+/** Default SLA length in whole days when a ticket is created. */
+export const SLA_DAYS: Record<TicketPriority, number> = {
+  LOW: 7,
+  MEDIUM: 3,
+  HIGH: 1,
+  CRITICAL: 1,
+};
+
 export const STATUS_LABELS: Record<TicketStatus, string> = {
   OPEN: "Open",
   IN_PROGRESS: "In-progress",

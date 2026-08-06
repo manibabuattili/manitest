@@ -5,6 +5,9 @@ import {
   isYesterday,
   differenceInHours,
   differenceInMinutes,
+  differenceInCalendarDays,
+  startOfDay,
+  addDays,
 } from "date-fns";
 
 export function formatTicketDate(date: Date | string): string {
@@ -25,37 +28,56 @@ export function formatRelative(date: Date | string): string {
   return formatDistanceToNowStrict(d, { addSuffix: true });
 }
 
+/** SLA due datetime from ticket received date + N whole days. */
+export function computeSlaDueFromDays(createdAt: Date | string, slaDays: number): Date {
+  const created = typeof createdAt === "string" ? new Date(createdAt) : createdAt;
+  const days = Math.max(0, Math.floor(slaDays));
+  return addDays(startOfDay(created), days);
+}
+
+/**
+ * Remaining SLA days (calendar). Decrements each day.
+ * Positive = days left, 0 = due today, negative = breached (-1, -2, …).
+ */
+export function getSlaDueDays(dueAt: Date | string, now = new Date()): number {
+  const due = typeof dueAt === "string" ? new Date(dueAt) : dueAt;
+  return differenceInCalendarDays(startOfDay(due), startOfDay(now));
+}
+
+export function formatSlaDueDays(daysLeft: number): string {
+  if (daysLeft === 0) return "0 days";
+  if (daysLeft === 1) return "1 day";
+  if (daysLeft === -1) return "-1 day";
+  return `${daysLeft} days`;
+}
+
 export function getSlaCountdown(dueAt: Date | string, breached: boolean): {
   label: string;
   breached: boolean;
   hoursLeft: number;
+  daysLeft: number;
 } {
   const due = typeof dueAt === "string" ? new Date(dueAt) : dueAt;
   const now = new Date();
   const hoursLeft = differenceInHours(due, now);
   const minutesLeft = differenceInMinutes(due, now);
+  const daysLeft = getSlaDueDays(due, now);
+  const isBreached = breached || daysLeft < 0 || minutesLeft < 0;
 
-  if (breached || minutesLeft < 0) {
-    const overdueHours = Math.abs(hoursLeft);
+  if (isBreached) {
     return {
-      label: overdueHours >= 24
-        ? `Breached ${Math.floor(overdueHours / 24)}d ago`
-        : `Breached ${Math.max(1, overdueHours)}h ago`,
+      label: formatSlaDueDays(daysLeft < 0 ? daysLeft : -1),
       breached: true,
       hoursLeft,
+      daysLeft: daysLeft < 0 ? daysLeft : -1,
     };
   }
 
-  if (hoursLeft < 1) {
-    return { label: `${Math.max(1, minutesLeft)}m left`, breached: false, hoursLeft };
-  }
-  if (hoursLeft < 24) {
-    return { label: `${hoursLeft}h left`, breached: false, hoursLeft };
-  }
   return {
-    label: `${Math.floor(hoursLeft / 24)}d ${hoursLeft % 24}h left`,
+    label: formatSlaDueDays(daysLeft),
     breached: false,
     hoursLeft,
+    daysLeft,
   };
 }
 

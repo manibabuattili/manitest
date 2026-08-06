@@ -21,10 +21,11 @@ import {
   closeTicketAction,
   updateTicketAction,
 } from "@/features/tickets/actions";
-import { formatShortDate, getSlaCountdown } from "@/lib/dates";
+import { formatShortDate, formatSlaDueDays, getSlaCountdown, getSlaDueDays } from "@/lib/dates";
 import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
 import { SlaBadge, ChannelBadge } from "@/components/tickets/badges";
 import type { TicketPriority, TicketSource, TicketStatus } from "@prisma/client";
+import { cn } from "@/lib/utils";
 
 type TicketDetail = {
   id: string;
@@ -33,6 +34,7 @@ type TicketDetail = {
   status: TicketStatus;
   priority: TicketPriority;
   source: TicketSource;
+  slaDays: number;
   slaDueAt: Date | string;
   slaBreached: boolean;
   createdAt: Date | string;
@@ -61,20 +63,29 @@ export function PartnerTicketDetailView({
   const [subject, setSubject] = useState(ticket.subject);
   const [status, setStatus] = useState<TicketStatus>(ticket.status);
   const [priority, setPriority] = useState<TicketPriority>(ticket.priority);
+  const [slaDays, setSlaDays] = useState(String(ticket.slaDays ?? 3));
   const [componentId, setComponentId] = useState(ticket.component?.id ?? "");
   const [assigneeId, setAssigneeId] = useState(ticket.assignee?.id ?? "");
   const [labelId, setLabelId] = useState(ticket.labels[0]?.label.id ?? "");
 
   const sla = getSlaCountdown(ticket.slaDueAt, ticket.slaBreached);
+  const slaDueDays = getSlaDueDays(ticket.slaDueAt);
+  const slaDueBreached = slaDueDays < 0 || ticket.slaBreached;
   const closed = ticket.status === "CLOSED";
 
   function save() {
+    const parsedSla = Number.parseInt(slaDays.trim(), 10);
+    if (Number.isNaN(parsedSla) || parsedSla < 0) {
+      toast.error("SLA must be a whole number of days (e.g. 2)");
+      return;
+    }
     startTransition(async () => {
       const result = await updateTicketAction({
         ticketId: ticket.id,
         subject,
         status,
         priority,
+        slaDays: parsedSla,
         componentId: componentId || null,
         assigneeId: assigneeId || null,
         labelIds: labelId ? [labelId] : [],
@@ -158,7 +169,10 @@ export function PartnerTicketDetailView({
               Close Ticket
             </Button>
             <ChannelBadge source={ticket.source} />
-            <SlaBadge label={sla.label} breached={sla.breached} />
+            <SlaBadge
+              label={slaDueBreached ? `SLA ${formatSlaDueDays(slaDueDays)}` : `SLA Due ${formatSlaDueDays(slaDueDays)}`}
+              breached={slaDueBreached}
+            />
           </div>
 
           <div className="min-h-0 flex-1">
@@ -257,9 +271,42 @@ export function PartnerTicketDetailView({
               </Select>
             </Field>
             <Field label="SLA">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                {sla.label}
+              <div className="relative">
+                <Input
+                  type="number"
+                  min={0}
+                  max={365}
+                  inputMode="numeric"
+                  placeholder="e.g. 5"
+                  value={slaDays}
+                  onChange={(e) => setSlaDays(e.target.value)}
+                  disabled={closed}
+                  className="pr-14"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                  days
+                </span>
               </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Enter whole days (e.g. 2 = 2 days from ticket received date).
+              </p>
+            </Field>
+            <Field label="SLA Due">
+              <div
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-sm font-semibold",
+                  slaDueBreached
+                    ? "border-red-200 bg-red-50 text-red-600"
+                    : "border-gray-200 bg-gray-50 text-gray-800"
+                )}
+              >
+                {formatSlaDueDays(slaDueDays)}
+                {slaDueBreached ? " · breached" : ""}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Counts down each day from the ticket received date. Breached SLAs show as negative
+                days in red.
+              </p>
             </Field>
 
             {ticket.attachments.length > 0 && (

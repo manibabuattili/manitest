@@ -37,6 +37,8 @@ export const updateTicketSchema = z.object({
   subject: z.string().min(3).optional(),
   status: z.enum(["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+  /** Whole days SLA target entered by the support agent (e.g. 2 = 2 days). */
+  slaDays: z.coerce.number().int().min(0).max(365).optional(),
   componentId: z.string().nullable().optional(),
   assigneeId: z.string().nullable().optional(),
   labelIds: z.array(z.string()).optional(),

@@ -1,5 +1,6 @@
 import { PrismaClient, TicketPriority, TicketStatus, TicketSource, MessageSenderType } from "@prisma/client";
-import { COMPONENT_NAMES, LABEL_DEFS, SLA_HOURS } from "../src/lib/constants";
+import { COMPONENT_NAMES, LABEL_DEFS, SLA_DAYS } from "../src/lib/constants";
+import { computeSlaDueFromDays } from "../src/lib/dates";
 
 const prisma = new PrismaClient();
 
@@ -76,7 +77,7 @@ function randomPastDate(daysBack: number): Date {
 }
 
 function slaDue(priority: TicketPriority, createdAt: Date): Date {
-  return new Date(createdAt.getTime() + SLA_HOURS[priority] * 60 * 60 * 1000);
+  return computeSlaDueFromDays(createdAt, SLA_DAYS[priority]);
 }
 
 async function main() {
@@ -180,6 +181,7 @@ async function main() {
         status,
         priority,
         source,
+        slaDays: SLA_DAYS[priority],
         slaDueAt: due,
         slaBreached: breached,
         createdAt,
