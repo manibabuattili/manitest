@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -H 0.0.0.0 -p 3002",
+    "dev:restart": "bash scripts/restart-dev.sh",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3002",
     "lint": "eslint",

@@ -20,7 +20,30 @@ npm run db:setup
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3002](http://localhost:3002).
+
+### Restart the app (port 3002)
+
+If the page stops loading, run this in a terminal from the repo root:
+
+```bash
+npm run dev:restart
+```
+
+Or manually:
+
+```bash
+# optional: free the port
+fuser -k 3002/tcp
+
+# start postgres if needed (Linux)
+sudo pg_ctlcluster 16 main start
+
+npm run dev
+```
+
+Keep that terminal open. Then open http://localhost:3002  
+If you’re in Cursor Cloud, use the **Ports** panel → **3002** → Open in Browser.
 
 ## Portals
 
