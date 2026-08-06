@@ -3,19 +3,38 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, CalendarDays, ChevronDown } from "lucide-react";
+import { Plus, Search, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { LabelPill } from "@/components/tickets/badges";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ChannelBadge,
+  LabelPill,
+  PriorityBadge,
+  StatusBadge,
+} from "@/components/tickets/badges";
 import { CreateTicketDrawer } from "@/features/tickets/components/create-ticket-drawer";
 import { formatTicketDate } from "@/lib/dates";
+import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import type { TicketPriority, TicketSource, TicketStatus } from "@prisma/client";
 
 type TicketRow = {
   id: string;
   ticketNumber: string;
   subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  source: TicketSource;
+  unreadCount: number;
+  lastMessagePreview: string | null;
   updatedAt: Date | string;
   createdAt: Date | string;
   customer: { name: string; company: string };
@@ -49,10 +68,13 @@ export function PartnerTicketsView({
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [accountOpen, setAccountOpen] = useState(false);
   const selectedCompany = searchParams.get("company") ?? "ALL";
+  const selectedStatus = searchParams.get("status") ?? "ALL";
+  const selectedPriority = searchParams.get("priority") ?? "ALL";
+  const selectedSource = searchParams.get("source") ?? "ALL";
   const [, startTransition] = useTransition();
 
   const companyLabel = useMemo(() => {
-    if (selectedCompany === "ALL") return "Select Account";
+    if (selectedCompany === "ALL") return "All accounts";
     return selectedCompany;
   }, [selectedCompany]);
 
@@ -68,11 +90,20 @@ export function PartnerTicketsView({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-8 pt-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Support</h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Support</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Queue, filter, and act on customer & WhatsApp tickets.
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} className="gap-1">
+          <Plus className="h-4 w-4" />
+          Raise Ticket
+        </Button>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 px-8">
-        <div className="relative min-w-[240px] flex-1">
+        <div className="relative min-w-[220px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             className="pl-9"
@@ -84,10 +115,55 @@ export function PartnerTicketsView({
             }}
           />
         </div>
-        <Button variant="secondary" className="gap-2 text-gray-600">
-          <CalendarDays className="h-4 w-4" />
-          Jan 10, 2025 - Jan 16, 2025
-        </Button>
+
+        <Select
+          value={selectedStatus}
+          onValueChange={(v) => updateParams({ status: v, page: "1" })}
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All statuses</SelectItem>
+            {(Object.keys(STATUS_LABELS) as TicketStatus[]).map((s) => (
+              <SelectItem key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={selectedPriority}
+          onValueChange={(v) => updateParams({ priority: v, page: "1" })}
+        >
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All priorities</SelectItem>
+            {(Object.keys(PRIORITY_LABELS) as TicketPriority[]).map((p) => (
+              <SelectItem key={p} value={p}>
+                {PRIORITY_LABELS[p]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={selectedSource}
+          onValueChange={(v) => updateParams({ source: v, page: "1" })}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Channel" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All channels</SelectItem>
+            <SelectItem value="PORTAL">Portal</SelectItem>
+            <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+          </SelectContent>
+        </Select>
+
         <div className="relative">
           <Button
             variant="secondary"
@@ -98,7 +174,7 @@ export function PartnerTicketsView({
             <ChevronDown className="h-4 w-4" />
           </Button>
           {accountOpen && (
-            <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+            <div className="absolute right-0 z-20 mt-2 max-h-64 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
               {["ALL", ...companies.slice(0, 12)].map((c) => (
                 <button
                   key={c}
@@ -118,17 +194,18 @@ export function PartnerTicketsView({
             </div>
           )}
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-1">
-          <Plus className="h-4 w-4" />
-          Raise Ticket
-        </Button>
       </div>
 
       <div className="mt-6 flex gap-6 border-b border-gray-200 px-8">
-        <button className="border-b-2 border-brand-600 pb-3 text-sm font-semibold text-brand-700">
+        <Link
+          href="/partner/support"
+          className="border-b-2 border-brand-600 pb-3 text-sm font-semibold text-brand-700"
+        >
           Tickets
-        </button>
-        <button className="pb-3 text-sm font-medium text-gray-500">Analytics</button>
+        </Link>
+        <Link href="/partner" className="pb-3 text-sm font-medium text-gray-500 hover:text-gray-800">
+          Analytics
+        </Link>
       </div>
 
       <div className="mx-8 mt-0 overflow-hidden rounded-b-xl border border-t-0 border-gray-200 bg-white shadow-sm">
@@ -140,8 +217,10 @@ export function PartnerTicketsView({
               </th>
               <th className="px-3 py-3">Ticket ID</th>
               <th className="px-3 py-3">Subject</th>
-              <th className="px-3 py-3">Customer Name</th>
-              <th className="px-3 py-3">Account Name</th>
+              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">Priority</th>
+              <th className="px-3 py-3">Channel</th>
+              <th className="px-3 py-3">Customer</th>
               <th className="px-3 py-3">Label</th>
               <th className="px-3 py-3">Last Updated</th>
             </tr>
@@ -156,10 +235,33 @@ export function PartnerTicketsView({
                   <Link href={`/partner/support/${t.ticketNumber}`} className="hover:text-brand-700">
                     {t.ticketNumber}
                   </Link>
+                  {t.unreadCount > 0 && (
+                    <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">
+                      {t.unreadCount}
+                    </span>
+                  )}
                 </td>
-                <td className="px-3 py-3 text-gray-700">{t.subject}</td>
-                <td className="px-3 py-3 text-gray-700">{t.customer.name}</td>
-                <td className="px-3 py-3 text-gray-700">{t.customer.company}</td>
+                <td className="max-w-[220px] px-3 py-3">
+                  <p className="truncate font-medium text-gray-800">{t.subject}</p>
+                  {t.lastMessagePreview && (
+                    <p className="truncate text-xs text-gray-450 text-gray-400">
+                      {t.lastMessagePreview}
+                    </p>
+                  )}
+                </td>
+                <td className="px-3 py-3">
+                  <StatusBadge status={t.status} />
+                </td>
+                <td className="px-3 py-3">
+                  <PriorityBadge priority={t.priority} />
+                </td>
+                <td className="px-3 py-3">
+                  <ChannelBadge source={t.source} />
+                </td>
+                <td className="px-3 py-3 text-gray-700">
+                  <p className="font-medium">{t.customer.name}</p>
+                  <p className="text-xs text-gray-400">{t.customer.company}</p>
+                </td>
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap gap-1">
                     {t.labels.map((l) => (
@@ -172,7 +274,7 @@ export function PartnerTicketsView({
             ))}
             {tickets.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
                   No tickets match your filters.
                 </td>
               </tr>

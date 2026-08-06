@@ -14,7 +14,7 @@ Customer Portal + Internal Partner Portal + WhatsApp support channel for Bluconn
 ```bash
 git clone https://github.com/manibabuattili/manitest.git
 cd manitest
-git checkout cursor/whatsapp-support-ticket-eb56
+git checkout cursor/support-mvp-enhancements-c3a0
 git pull
 cp .env.example .env
 npm install
@@ -60,9 +60,17 @@ npm run dev:restart
 | Home / portal picker | `/` |
 | Customer — My Tickets | `/support` |
 | Customer — Ticket detail | `/support/SUP-xxxx` |
+| Partner — Dashboard | `/partner` |
 | Partner — Support queue | `/partner/support` |
 | Partner — Ticket detail | `/partner/support/SUP-xxxx` |
 | WhatsApp — Mobile support chat | `/whatsapp` |
+
+## Recent enhancements
+
+- **Real attachments** — uploads on raise ticket / create ticket / reply persist and render in the conversation
+- **Partner dashboard** — live counts for active tickets, SLA breaches, unassigned, WhatsApp vs portal
+- **Channel field** — tickets store `PORTAL` or `WHATSAPP`; partner queue shows channel badges + filter
+- **Richer partner queue** — status, priority, channel filters; status/priority/unread/last-message columns
 
 ## WhatsApp demo (Site Engineer)
 

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import type { TicketPriority, TicketStatus } from "@prisma/client";
+import type { TicketPriority, TicketSource, TicketStatus } from "@prisma/client";
 import { getMetaOptions, listTickets } from "@/features/tickets/actions";
 import { PartnerTicketsView } from "@/features/tickets/components/partner-tickets-view";
 
@@ -16,6 +16,7 @@ export default async function PartnerSupportPage({
       q: params.q,
       status: (params.status as TicketStatus | "ALL" | undefined) ?? "ALL",
       priority: (params.priority as TicketPriority | "ALL" | undefined) ?? "ALL",
+      source: (params.source as TicketSource | "ALL" | undefined) ?? "ALL",
       company: params.company,
       page,
       pageSize: 20,

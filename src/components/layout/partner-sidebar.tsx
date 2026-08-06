@@ -35,6 +35,12 @@ const partnerNav = [
   { label: "Analytics", icon: BarChart3, expandable: true },
 ];
 
+function isActive(pathname: string, href?: string) {
+  if (!href) return false;
+  if (href === "/partner") return pathname === "/partner";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function PartnerSidebar() {
   const pathname = usePathname();
 
@@ -62,7 +68,7 @@ export function PartnerSidebar() {
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
         <ul className="space-y-0.5">
           {partnerNav.map((item) => {
-            const active = item.href ? pathname.startsWith(item.href) : false;
+            const active = isActive(pathname, item.href);
             const Icon = item.icon;
             const content = (
               <span

@@ -30,6 +30,11 @@ enum MessageSenderType {
   INTERNAL
 }
 
+enum TicketSource {
+  PORTAL
+  WHATSAPP
+}
+
 model Customer {
   id        String   @id @default(cuid())
   name      String
@@ -74,6 +79,7 @@ model Ticket {
   description     String
   status          TicketStatus   @default(OPEN)
   priority        TicketPriority @default(MEDIUM)
+  source          TicketSource   @default(PORTAL)
   slaDueAt        DateTime
   slaBreached     Boolean        @default(false)
   unreadCount     Int            @default(0)
@@ -98,6 +104,7 @@ model Ticket {
 
   @@index([status])
   @@index([priority])
+  @@index([source])
   @@index([customerId])
   @@index([assigneeId])
   @@index([updatedAt])

@@ -1,4 +1,4 @@
-import type { TicketStatus, TicketPriority } from "@prisma/client";
+import type { TicketStatus, TicketPriority, TicketSource } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
 
@@ -23,6 +23,17 @@ export function StatusBadge({ status }: { status: TicketStatus }) {
 
 export function PriorityBadge({ priority }: { priority: TicketPriority }) {
   return <Badge tone={priorityTone[priority]}>{PRIORITY_LABELS[priority]}</Badge>;
+}
+
+export function ChannelBadge({ source }: { source: TicketSource }) {
+  if (source === "WHATSAPP") {
+    return (
+      <Badge tone="success" className="border-[#25D366]/40 bg-[#ecfdf3] text-[#027a48]">
+        WhatsApp
+      </Badge>
+    );
+  }
+  return <Badge tone="info">Portal</Badge>;
 }
 
 export function LabelPill({ name, color }: { name: string; color: string }) {

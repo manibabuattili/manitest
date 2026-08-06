@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileUploadZone } from "@/components/tickets/file-upload";
+import { FileUploadZone, type UploadFileItem } from "@/components/tickets/file-upload";
 import { createTicketAction } from "@/features/tickets/actions";
+import { filesToAttachmentInputs } from "@/lib/attachments";
 
 type Option = { id: string; name: string };
 type CustomerOption = Option & { company: string };
@@ -47,7 +48,7 @@ export function CreateTicketDrawer({
   const [componentId, setComponentId] = useState("");
   const [labelId, setLabelId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
-  const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
+  const [files, setFiles] = useState<UploadFileItem[]>([]);
 
   const pocOptions = useMemo(
     () => (account ? customers.filter((c) => c.company === account) : customers),
@@ -74,25 +75,32 @@ export function CreateTicketDrawer({
 
   function onSubmit() {
     startTransition(async () => {
-      const result = await createTicketAction({
-        subject: subject.trim(),
-        description: description.trim(),
-        componentId,
-        labelIds: labelId ? [labelId] : [],
-        customerId: pocId || undefined,
-        accountCompany: account || undefined,
-        assigneeId: assigneeId || undefined,
-        priority: "MEDIUM",
-      });
-      if (!result.ok) {
-        toast.error("Could not create ticket");
-        return;
+      try {
+        const attachments = await filesToAttachmentInputs(files.map((f) => f.file));
+        const result = await createTicketAction({
+          subject: subject.trim(),
+          description: description.trim(),
+          componentId,
+          labelIds: labelId ? [labelId] : [],
+          customerId: pocId || undefined,
+          accountCompany: account || undefined,
+          assigneeId: assigneeId || undefined,
+          priority: "MEDIUM",
+          source: "PORTAL",
+          attachments,
+        });
+        if (!result.ok) {
+          toast.error("Could not create ticket");
+          return;
+        }
+        toast.success("Ticket Raised Successfully");
+        reset();
+        onOpenChange(false);
+        router.push(`/partner/support/${result.ticket.ticketNumber}`);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Upload failed");
       }
-      toast.success("Ticket Raised Successfully");
-      reset();
-      onOpenChange(false);
-      router.push(`/partner/support/${result.ticket.ticketNumber}`);
-      router.refresh();
     });
   }
 
@@ -158,13 +166,7 @@ export function CreateTicketDrawer({
         </div>
         <div className="space-y-1.5">
           <Label>Attachments</Label>
-          <FileUploadZone
-            files={files}
-            onFiles={(list) => {
-              if (!list) return;
-              setFiles(Array.from(list).map((f) => ({ name: f.name, size: f.size })));
-            }}
-          />
+          <FileUploadZone files={files} onFiles={setFiles} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">

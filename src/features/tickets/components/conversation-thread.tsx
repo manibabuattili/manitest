@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
-import { Paperclip, Send, Smile } from "lucide-react";
+import { Paperclip, Send, Smile, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { replyToTicketAction } from "@/features/tickets/actions";
+import { filesToAttachmentInputs } from "@/lib/attachments";
 
 type Message = {
   id: string;
@@ -18,8 +19,48 @@ type Message = {
   createdAt: Date | string;
   customer?: { name: string; avatarUrl: string | null } | null;
   agent?: { name: string; avatarUrl: string | null } | null;
-  attachments?: { id: string; fileName: string; fileSize: number }[];
+  attachments?: { id: string; fileName: string; fileSize: number; url?: string; mimeType?: string }[];
 };
+
+function AttachmentChip({
+  fileName,
+  url,
+  mimeType,
+}: {
+  fileName: string;
+  url?: string;
+  mimeType?: string;
+}) {
+  const isImage = Boolean(mimeType?.startsWith("image/") || url?.startsWith("data:image"));
+  if (isImage && url) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="block overflow-hidden rounded-lg border border-gray-200 bg-white"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt={fileName} className="max-h-40 max-w-full object-contain" />
+        <span className="flex items-center gap-1 border-t border-gray-100 px-2 py-1 text-xs text-gray-600">
+          <Paperclip className="h-3 w-3" />
+          {fileName}
+        </span>
+      </a>
+    );
+  }
+  return (
+    <a
+      href={url || "#"}
+      target={url ? "_blank" : undefined}
+      rel="noreferrer"
+      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 hover:border-brand-300"
+    >
+      <Paperclip className="h-3 w-3" />
+      {fileName}
+    </a>
+  );
+}
 
 export function ConversationThread({
   ticketId,
@@ -31,7 +72,9 @@ export function ConversationThread({
   asAgent?: boolean;
 }) {
   const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [pending, startTransition] = useTransition();
 
   const isInternalDraft = useMemo(() => {
@@ -41,26 +84,33 @@ export function ConversationThread({
 
   function send() {
     const trimmed = body.trim();
-    if (!trimmed) return;
+    if (!trimmed && files.length === 0) return;
     const isInternal = isInternalDraft;
     const content = isInternal
       ? trimmed.replace(/^@internal\s*/i, "").replace(/^\/internal\s*/i, "").trim()
       : trimmed;
-    if (!content) return;
+    if (!content && files.length === 0) return;
 
     startTransition(async () => {
-      const result = await replyToTicketAction({
-        ticketId,
-        body: content,
-        isInternal,
-        asAgent,
-      });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
+      try {
+        const attachments = await filesToAttachmentInputs(files);
+        const result = await replyToTicketAction({
+          ticketId,
+          body: content || (attachments.length ? `Attached ${attachments.length} file(s)` : ""),
+          isInternal,
+          asAgent,
+          attachments,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        setBody("");
+        setFiles([]);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not attach files");
       }
-      setBody("");
-      router.refresh();
     });
   }
 
@@ -86,6 +136,13 @@ export function ConversationThread({
                   <span>{format(new Date(m.createdAt), "h:mm a")}</span>
                 </div>
                 <p className="text-sm text-gray-800">{m.body}</p>
+                {m.attachments && m.attachments.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {m.attachments.map((a) => (
+                      <AttachmentChip key={a.id} fileName={a.fileName} url={a.url} mimeType={a.mimeType} />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           }
@@ -119,12 +176,9 @@ export function ConversationThread({
                   {m.body}
                 </div>
                 {m.attachments && m.attachments.length > 0 && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {m.attachments.map((a) => (
-                      <div key={a.id} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600">
-                        <Paperclip className="h-3 w-3" />
-                        {a.fileName}
-                      </div>
+                      <AttachmentChip key={a.id} fileName={a.fileName} url={a.url} mimeType={a.mimeType} />
                     ))}
                   </div>
                 )}
@@ -153,16 +207,64 @@ export function ConversationThread({
             placeholder="Message"
             className="min-h-[72px] w-full resize-none border-0 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
           />
+          {files.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {files.map((f) => (
+                <span
+                  key={f.name}
+                  className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
+                >
+                  <Paperclip className="h-3 w-3" />
+                  {f.name}
+                  <button
+                    type="button"
+                    className="ml-1 rounded p-0.5 hover:bg-gray-200"
+                    onClick={() => setFiles((prev) => prev.filter((x) => x.name !== f.name))}
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-1 text-gray-400">
-              <button type="button" className="rounded-md p-1.5 hover:bg-gray-100" aria-label="Attach">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,.svg,.gif"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const list = e.target.files;
+                  if (!list) return;
+                  setFiles((prev) => {
+                    const map = new Map(prev.map((f) => [f.name, f]));
+                    Array.from(list).forEach((f) => map.set(f.name, f));
+                    return Array.from(map.values());
+                  });
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className="rounded-md p-1.5 hover:bg-gray-100"
+                aria-label="Attach"
+                onClick={() => fileRef.current?.click()}
+              >
                 <Paperclip className="h-4 w-4" />
               </button>
               <button type="button" className="rounded-md p-1.5 hover:bg-gray-100" aria-label="Emoji">
                 <Smile className="h-4 w-4" />
               </button>
             </div>
-            <Button size="icon" disabled={!body.trim() || pending} onClick={send} className="h-9 w-9">
+            <Button
+              size="icon"
+              disabled={(!body.trim() && files.length === 0) || pending}
+              onClick={send}
+              className="h-9 w-9"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -172,7 +274,7 @@ export function ConversationThread({
             ? isInternalDraft
               ? "This message will be sent as an internal note."
               : "Tip: Start your message with @internal to create an internal note."
-            : "Press Ctrl/⌘ + Enter to send."}
+            : "Press Ctrl/⌘ + Enter to send. Attach screenshots with the paperclip."}
         </p>
       </div>
     </div>

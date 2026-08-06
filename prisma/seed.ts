@@ -1,4 +1,4 @@
-import { PrismaClient, TicketPriority, TicketStatus, MessageSenderType } from "@prisma/client";
+import { PrismaClient, TicketPriority, TicketStatus, TicketSource, MessageSenderType } from "@prisma/client";
 import { COMPONENT_NAMES, LABEL_DEFS, SLA_HOURS } from "../src/lib/constants";
 
 const prisma = new PrismaClient();
@@ -167,6 +167,8 @@ async function main() {
     const subject = pick(SUBJECTS);
     const due = slaDue(priority, createdAt);
     const breached = due < new Date() && status !== "RESOLVED" && status !== "CLOSED";
+    const source: TicketSource =
+      subject.toLowerCase().includes("whatsapp") || i % 11 === 0 ? "WHATSAPP" : "PORTAL";
 
     const ticket = await prisma.ticket.create({
       data: {
@@ -175,6 +177,7 @@ async function main() {
         description: `The ${subject.toLowerCase()} is affecting operations for ${customer.company}. Need assistance resolving this promptly.`,
         status,
         priority,
+        source,
         slaDueAt: due,
         slaBreached: breached,
         createdAt,
@@ -199,9 +202,13 @@ async function main() {
         activities: {
           create: {
             action: "TICKET_CREATED",
-            description: `Ticket ${ticketNumber} created`,
+            description:
+              source === "WHATSAPP"
+                ? `Ticket ${ticketNumber} created via WhatsApp`
+                : `Ticket ${ticketNumber} created`,
             createdAt,
             agentId: null,
+            metadata: { source },
           },
         },
       },

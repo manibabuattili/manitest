@@ -23,8 +23,8 @@ import {
 } from "@/features/tickets/actions";
 import { formatShortDate, getSlaCountdown } from "@/lib/dates";
 import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
-import { SlaBadge } from "@/components/tickets/badges";
-import type { TicketPriority, TicketStatus } from "@prisma/client";
+import { SlaBadge, ChannelBadge } from "@/components/tickets/badges";
+import type { TicketPriority, TicketSource, TicketStatus } from "@prisma/client";
 
 type TicketDetail = {
   id: string;
@@ -32,6 +32,7 @@ type TicketDetail = {
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
+  source: TicketSource;
   slaDueAt: Date | string;
   slaBreached: boolean;
   createdAt: Date | string;
@@ -40,7 +41,7 @@ type TicketDetail = {
   assignee: { id: string; name: string } | null;
   component: { id: string; name: string } | null;
   labels: { label: { id: string; name: string; color: string } }[];
-  attachments: { id: string; fileName: string; fileSize: number }[];
+  attachments: { id: string; fileName: string; fileSize: number; url?: string }[];
   messages: Parameters<typeof ConversationThread>[0]["messages"];
 };
 
@@ -156,6 +157,7 @@ export function PartnerTicketDetailView({
             >
               Close Ticket
             </Button>
+            <ChannelBadge source={ticket.source} />
             <SlaBadge label={sla.label} breached={sla.breached} />
           </div>
 
@@ -169,6 +171,10 @@ export function PartnerTicketDetailView({
             <DetailRow label="ID" value={ticket.ticketNumber} />
             <DetailRow label="Requester" value={ticket.customer.name} />
             <DetailRow label="Company" value={ticket.customer.company} />
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-500">Channel</span>
+              <ChannelBadge source={ticket.source} />
+            </div>
             <DetailRow label="Created" value={formatShortDate(ticket.createdAt)} />
             <DetailRow label="Updated" value={formatShortDate(ticket.updatedAt)} />
           </div>
@@ -257,13 +263,20 @@ export function PartnerTicketDetailView({
               <div className="space-y-2">
                 <Label>Attachments</Label>
                 {ticket.attachments.map((a) => (
-                  <div key={a.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                  <a
+                    key={a.id}
+                    href={a.url || "#"}
+                    target={a.url ? "_blank" : undefined}
+                    rel="noreferrer"
+                    className="block rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-brand-300"
+                  >
+                    {a.url && (a.url.startsWith("data:image") || a.url.match(/\.(png|jpe?g|gif|webp|svg)$/i)) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.url} alt={a.fileName} className="mb-2 max-h-28 w-full rounded object-contain" />
+                    ) : null}
                     <p className="font-medium text-gray-800">{a.fileName}</p>
                     <p className="text-xs text-gray-500">{Math.round(a.fileSize / 1024)} KB</p>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                      <div className="h-full w-full bg-brand-500" />
-                    </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             )}

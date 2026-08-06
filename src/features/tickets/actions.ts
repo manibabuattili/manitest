@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Prisma, TicketPriority, TicketStatus } from "@prisma/client";
+import type { Prisma, TicketPriority, TicketSource, TicketStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   DEMO_AGENT_EMAIL,
@@ -80,6 +80,7 @@ export type TicketListParams = {
   q?: string;
   status?: TicketStatus | "ALL";
   priority?: TicketPriority | "ALL";
+  source?: TicketSource | "ALL";
   company?: string;
   page?: number;
   pageSize?: number;
@@ -93,6 +94,7 @@ export async function listTickets(params: TicketListParams = {}) {
     q,
     status,
     priority,
+    source,
     company,
     page = 1,
     pageSize = 20,
@@ -105,6 +107,7 @@ export async function listTickets(params: TicketListParams = {}) {
   if (customerId) where.customerId = customerId;
   if (status && status !== "ALL") where.status = status;
   if (priority && priority !== "ALL") where.priority = priority;
+  if (source && source !== "ALL") where.source = source;
   if (company && company !== "ALL") where.customer = { company };
   if (q) {
     where.OR = [
@@ -232,6 +235,7 @@ export async function createTicketAction(raw: unknown) {
       description: data.description,
       status: "OPEN",
       priority,
+      source: data.source ?? "PORTAL",
       slaDueAt: slaDueAt(priority, now),
       customerId: customer.id,
       assigneeId: data.assigneeId ?? null,
@@ -299,6 +303,7 @@ export async function createTicketAction(raw: unknown) {
 
   revalidatePath("/support");
   revalidatePath("/partner/support");
+  revalidatePath("/partner");
   revalidatePath("/whatsapp");
   return { ok: true as const, ticket };
 }
@@ -380,6 +385,7 @@ export async function replyToTicketAction(raw: unknown) {
   revalidatePath(`/partner/support/${ticket.ticketNumber}`);
   revalidatePath("/support");
   revalidatePath("/partner/support");
+  revalidatePath("/partner");
   revalidatePath("/whatsapp");
   return { ok: true as const };
 }
@@ -460,6 +466,7 @@ export async function updateTicketAction(raw: unknown) {
 
   revalidatePath(`/partner/support/${ticket.ticketNumber}`);
   revalidatePath("/partner/support");
+  revalidatePath("/partner");
   revalidatePath(`/support/${ticket.ticketNumber}`);
   revalidatePath("/support");
   revalidatePath("/whatsapp");
@@ -470,6 +477,76 @@ export async function assignToMeAction(ticketId: string) {
   const { agent } = await getDemoActors();
   if (!agent) return { ok: false as const, error: "No agent" };
   return updateTicketAction({ ticketId, assigneeId: agent.id, status: "IN_PROGRESS" });
+}
+
+export async function getPartnerDashboardStats() {
+  const now = new Date();
+  const [
+    total,
+    open,
+    inProgress,
+    waiting,
+    resolved,
+    closed,
+    breached,
+    unassigned,
+    whatsapp,
+    portal,
+    critical,
+    high,
+    recent,
+  ] = await Promise.all([
+    prisma.ticket.count(),
+    prisma.ticket.count({ where: { status: "OPEN" } }),
+    prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
+    prisma.ticket.count({ where: { status: "WAITING_FOR_CUSTOMER" } }),
+    prisma.ticket.count({ where: { status: "RESOLVED" } }),
+    prisma.ticket.count({ where: { status: "CLOSED" } }),
+    prisma.ticket.count({
+      where: {
+        OR: [{ slaBreached: true }, { slaDueAt: { lt: now }, status: { notIn: ["RESOLVED", "CLOSED"] } }],
+      },
+    }),
+    prisma.ticket.count({
+      where: { assigneeId: null, status: { notIn: ["RESOLVED", "CLOSED"] } },
+    }),
+    prisma.ticket.count({ where: { source: "WHATSAPP" } }),
+    prisma.ticket.count({ where: { source: "PORTAL" } }),
+    prisma.ticket.count({
+      where: { priority: "CRITICAL", status: { notIn: ["RESOLVED", "CLOSED"] } },
+    }),
+    prisma.ticket.count({
+      where: { priority: "HIGH", status: { notIn: ["RESOLVED", "CLOSED"] } },
+    }),
+    prisma.ticket.findMany({
+      take: 8,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        customer: true,
+        assignee: true,
+        labels: { include: { label: true } },
+      },
+    }),
+  ]);
+
+  return {
+    totals: {
+      total,
+      open,
+      inProgress,
+      waiting,
+      resolved,
+      closed,
+      breached,
+      unassigned,
+      whatsapp,
+      portal,
+      critical,
+      high,
+      active: open + inProgress + waiting,
+    },
+    recent,
+  };
 }
 
 export async function closeTicketAction(ticketId: string) {
