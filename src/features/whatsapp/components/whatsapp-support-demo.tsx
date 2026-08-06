@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import {
   ArrowLeft,
@@ -21,6 +22,7 @@ import {
 import { toast } from "sonner";
 import {
   createTicketAction,
+  getLatestPartnerPocTicket,
   getWhatsAppTicketSnapshot,
   replyToTicketAction,
 } from "@/features/tickets/actions";
@@ -92,6 +94,8 @@ function Tick({ status }: { status?: ChatMessage["status"] }) {
 }
 
 export function WhatsAppSupportDemo() {
+  const searchParams = useSearchParams();
+  const scenarioKey = `${searchParams.get("role") ?? ""}:${searchParams.get("scenario") ?? ""}:${searchParams.get("ticket") ?? ""}`;
   const [input, setInput] = useState("");
   const [role, setRole] = useState<"field" | "poc">("field");
   const [pocLabel, setPocLabel] = useState<string | null>(null);
@@ -119,7 +123,7 @@ export function WhatsAppSupportDemo() {
   const pollingRef = useRef(false);
   const seenSupportRef = useRef<Set<string>>(new Set());
   const repliedSupportRef = useRef<Set<string>>(new Set());
-  const restoredRef = useRef(false);
+  const restoredKeyRef = useRef<string | null>(null);
   const roleRef = useRef<"field" | "poc">("field");
 
   const pushMessage = useCallback((msg: Omit<ChatMessage, "id" | "time"> & { id?: string }) => {
@@ -145,28 +149,49 @@ export function WhatsAppSupportDemo() {
     });
   }, []);
 
-  // Restore session after navigating to Partner Portal and back
+  // Restore session / Scenario A|B from URL
   useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
+    if (restoredKeyRef.current === scenarioKey) return;
+    restoredKeyRef.current = scenarioKey;
+    seenSupportRef.current = new Set();
+    repliedSupportRef.current = new Set();
 
     async function restore() {
       const params = new URLSearchParams(window.location.search);
       const fromQuery = params.get("ticket");
       const roleParam = params.get("role") === "poc" ? "poc" : null;
+      const scenarioB = params.get("scenario") === "b";
       const saved = loadPersisted();
-      const number = fromQuery || saved?.ticketNumber || null;
-      const nextRole: "field" | "poc" = roleParam || saved?.role || "field";
+
+      let number = fromQuery || (scenarioB ? null : saved?.ticketNumber) || null;
+      if (scenarioB && !number) {
+        try {
+          const raw = localStorage.getItem("bluconn-wa-poc-ticket");
+          if (raw) {
+            const parsed = JSON.parse(raw) as { ticketNumber?: string };
+            number = parsed.ticketNumber || null;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      if (scenarioB && !number) {
+        const latest = await getLatestPartnerPocTicket();
+        if (latest.ok && latest.ticketNumber) number = latest.ticketNumber;
+      }
+
+      const nextRole: "field" | "poc" =
+        roleParam || (scenarioB ? "poc" : null) || saved?.role || "field";
       if (!number) return;
 
       const result = await getWhatsAppTicketSnapshot(number);
       if (!result.ok || !result.ticket) return;
 
-      // Fresh deep-link wins over stale session seen-ids
-      if (saved?.seenSupportIds && !roleParam && !fromQuery) {
+      // Fresh deep-link / Scenario B wins over stale session seen-ids
+      if (saved?.seenSupportIds && !roleParam && !fromQuery && !scenarioB) {
         seenSupportRef.current = new Set(saved.seenSupportIds);
       }
-      if (saved?.repliedToSupportIds && !roleParam && !fromQuery) {
+      if (saved?.repliedToSupportIds && !roleParam && !fromQuery && !scenarioB) {
         repliedSupportRef.current = new Set(saved.repliedToSupportIds);
       }
 
@@ -179,7 +204,21 @@ export function WhatsAppSupportDemo() {
       const pocPhone = result.ticket.customer.phone;
       setPocLabel(pocPhone ? `${pocName} · ${pocPhone}` : pocName);
 
-      if (nextRole === "poc") {
+      if (nextRole === "poc" || scenarioB) {
+        try {
+          localStorage.setItem(
+            "bluconn-wa-poc-ticket",
+            JSON.stringify({
+              ticketNumber: result.ticket.ticketNumber,
+              customerName: pocName,
+              phone: pocPhone,
+              deepLink: `/whatsapp?role=poc&scenario=b&ticket=${result.ticket.ticketNumber}`,
+            })
+          );
+        } catch {
+          /* ignore */
+        }
+
         const supportMessages = result.ticket.messages.filter((m) => m.senderType === "SUPPORT");
         const firstSupport = supportMessages[0] ?? null;
         const latest = result.ticket.latestSupportReply;
@@ -198,7 +237,7 @@ export function WhatsAppSupportDemo() {
             kind: "cta",
             text:
               firstSupport?.body ??
-              `Bluconn Support opened ticket ${result.ticket.ticketNumber} for you: ${result.ticket.subject}. You'll receive updates on this WhatsApp number.`,
+              `Your support ticket ${result.ticket.ticketNumber} has been created successfully by Bluconn Support.\n\nSubject: ${result.ticket.subject}\n\nWe'll update you here whenever there is progress.`,
             time: new Date(firstSupport?.createdAt ?? result.ticket.createdAt),
             ctaLabel: "View & Reply",
             ctaAction: "view",
@@ -207,6 +246,7 @@ export function WhatsAppSupportDemo() {
 
         if (firstSupport) seenSupportRef.current.add(firstSupport.id);
 
+        // Later agent replies show as the same "new update" pattern as Scenario A
         if (latest && latest.id !== firstSupport?.id) {
           seenSupportRef.current.add(latest.id);
           restoredMessages.push({
@@ -299,7 +339,7 @@ export function WhatsAppSupportDemo() {
     }
 
     void restore();
-  }, [persist]);
+  }, [persist, scenarioKey]);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });

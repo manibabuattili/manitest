@@ -227,13 +227,13 @@ export async function createTicketAction(raw: unknown) {
   const ticketNumber = preferred ?? (await nextTicketNumber());
   const now = new Date();
   const notifyWhatsApp =
-    data.notifyWhatsApp ??
-    (data.source === "PORTAL" && Boolean(data.customerId) && Boolean(customer.phone));
+    data.notifyWhatsApp ?? (data.source === "PORTAL" && Boolean(data.customerId));
   const skipAutoReply =
     data.skipAutoReply ?? (data.source === "WHATSAPP" || notifyWhatsApp);
 
+  const pocPhoneLabel = customer.phone || "WhatsApp";
   const partnerWhatsAppIntro = notifyWhatsApp
-    ? `Hi ${customer.name}, Bluconn Support has opened ticket ${ticketNumber} on your behalf.\n\nSubject: ${data.subject}\n\nWe'll send progress updates to this WhatsApp number (${customer.phone}). Tap View & Reply anytime to respond.`
+    ? `Hi ${customer.name}, Bluconn Support has opened ticket ${ticketNumber} on your behalf.\n\nSubject: ${data.subject}\n\nWe'll send progress updates to you on WhatsApp${customer.phone ? ` (${customer.phone})` : ""}. Tap View & Reply anytime to respond.`
     : null;
 
   const ticket = await prisma.ticket.create({
@@ -314,15 +314,15 @@ export async function createTicketAction(raw: unknown) {
             agentId: agent?.id,
             metadata: { source: data.source ?? "PORTAL" },
           },
-          ...(notifyWhatsApp && customer.phone
+          ...(notifyWhatsApp
             ? [
                 {
                   action: "WHATSAPP_POC_NOTIFIED",
-                  description: `Support updates sent to POC ${customer.name} on WhatsApp ${customer.phone}`,
+                  description: `Support updates sent to POC ${customer.name} on WhatsApp${customer.phone ? ` ${customer.phone}` : ""}`,
                   agentId: agent?.id,
                   metadata: {
                     customerId: customer.id,
-                    phone: customer.phone,
+                    phone: customer.phone ?? pocPhoneLabel,
                     channel: "WHATSAPP",
                   },
                 },
@@ -341,16 +341,15 @@ export async function createTicketAction(raw: unknown) {
   return {
     ok: true as const,
     ticket,
-    whatsapp:
-      notifyWhatsApp && customer.phone
-        ? {
-            notified: true as const,
-            phone: customer.phone,
-            customerId: customer.id,
-            customerName: customer.name,
-            deepLink: `/whatsapp?role=poc&ticket=${ticket.ticketNumber}`,
-          }
-        : { notified: false as const },
+    whatsapp: notifyWhatsApp
+      ? {
+          notified: true as const,
+          phone: customer.phone ?? pocPhoneLabel,
+          customerId: customer.id,
+          customerName: customer.name,
+          deepLink: `/whatsapp?role=poc&scenario=b&ticket=${ticket.ticketNumber}`,
+        }
+      : { notified: false as const },
   };
 }
 
@@ -417,12 +416,12 @@ export async function replyToTicketAction(raw: unknown) {
     // Agent replies also notify the POC on WhatsApp (demo activity trail)
     if (asAgent) {
       const poc = await prisma.customer.findUnique({ where: { id: ticket.customerId } });
-      if (poc?.phone) {
+      if (poc) {
         await prisma.ticketActivity.create({
           data: {
             ticketId,
             action: "WHATSAPP_POC_UPDATE",
-            description: `Update pushed to POC ${poc.name} on WhatsApp ${poc.phone}`,
+            description: `Update pushed to POC ${poc.name} on WhatsApp${poc.phone ? ` ${poc.phone}` : ""}`,
             agentId: agent?.id,
             metadata: { phone: poc.phone, customerId: poc.id },
           },
@@ -664,5 +663,44 @@ export async function getWhatsAppTicketSnapshot(ticketNumber = WHATSAPP_DEMO_TIC
         : null,
       supportReplyCount: supportReplies.length,
     },
+  };
+}
+
+/** Latest ticket raised from Partner Portal for a POC (Scenario B). */
+export async function getLatestPartnerPocTicket() {
+  const activity = await prisma.ticketActivity.findFirst({
+    where: { action: "WHATSAPP_POC_NOTIFIED" },
+    orderBy: { createdAt: "desc" },
+    include: {
+      ticket: {
+        include: { customer: true },
+      },
+    },
+  });
+
+  if (activity?.ticket) {
+    return {
+      ok: true as const,
+      ticketNumber: activity.ticket.ticketNumber,
+      subject: activity.ticket.subject,
+      customerName: activity.ticket.customer.name,
+      phone: activity.ticket.customer.phone,
+    };
+  }
+
+  const ticket = await prisma.ticket.findFirst({
+    where: { source: "PORTAL" },
+    orderBy: { createdAt: "desc" },
+    include: { customer: true },
+  });
+
+  if (!ticket) return { ok: false as const, ticketNumber: null };
+
+  return {
+    ok: true as const,
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    customerName: ticket.customer.name,
+    phone: ticket.customer.phone,
   };
 }

@@ -109,14 +109,28 @@ export function CreateTicketDrawer({
 
         const number = result.ticket.ticketNumber;
         if (result.whatsapp.notified) {
+          const deepLink = result.whatsapp.deepLink;
+          try {
+            localStorage.setItem(
+              "bluconn-wa-poc-ticket",
+              JSON.stringify({
+                ticketNumber: number,
+                customerName: result.whatsapp.customerName,
+                phone: result.whatsapp.phone,
+                deepLink,
+              })
+            );
+          } catch {
+            /* ignore */
+          }
           toast.success(
-            `Ticket ${number} raised. Updates sent to ${result.whatsapp.customerName} on WhatsApp ${result.whatsapp.phone}`,
+            `Ticket ${number} raised. Updates sent to ${result.whatsapp.customerName} on WhatsApp.`,
             {
-              duration: 8000,
+              duration: 9000,
               action: {
-                label: "Open POC WhatsApp",
+                label: "Open Scenario B",
                 onClick: () => {
-                  window.open(result.whatsapp.deepLink, "_blank");
+                  window.location.href = deepLink;
                 },
               },
             }
@@ -184,22 +198,20 @@ export function CreateTicketDrawer({
               ))}
             </SelectContent>
           </Select>
-          {selectedPoc?.phone ? (
+          {selectedPoc ? (
             <div className="mt-2 flex items-start gap-2 rounded-xl border border-[#25D366]/30 bg-[#ecfdf3] px-3 py-2.5 text-sm text-[#065f46]">
               <MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
-                <p className="font-semibold">WhatsApp updates → {selectedPoc.phone}</p>
+                <p className="font-semibold">
+                  WhatsApp updates → {selectedPoc.name}
+                  {selectedPoc.phone ? ` · ${selectedPoc.phone}` : ""}
+                </p>
                 <p className="mt-0.5 text-xs text-[#047857]">
-                  {selectedPoc.name} is the POC for this ticket. Ticket creation and every support
-                  reply will be sent to their WhatsApp so they can view &amp; respond.
+                  Ticket creation and every support reply will be sent to this POC on WhatsApp so
+                  they can view &amp; respond (Scenario B).
                 </p>
               </div>
             </div>
-          ) : selectedPoc ? (
-            <p className="text-xs text-amber-700">
-              This POC has no WhatsApp number on file. Add a phone in seed/customer data to enable
-              notifications.
-            </p>
           ) : (
             <p className="text-xs text-gray-500">
               Choose the person who should receive WhatsApp updates and reply on this ticket.
