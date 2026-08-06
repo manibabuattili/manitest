@@ -40,12 +40,20 @@ export default function WhatsAppSupportPage() {
               Return here — View &amp; Reply opens the in-app ticket thread.
             </li>
           </ol>
-          <Link
-            href="/partner/support"
-            className="mt-6 inline-flex rounded-lg bg-[#075E54] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#064e47]"
-          >
-            Open Partner Portal →
-          </Link>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/partner/support"
+              className="inline-flex rounded-lg bg-[#075E54] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#064e47]"
+            >
+              Open Partner Portal →
+            </Link>
+            <Link
+              href="/whatsapp?ticket=SUP-2027"
+              className="inline-flex rounded-lg border border-[#075E54]/30 bg-white px-4 py-2.5 text-sm font-semibold text-[#075E54] shadow-sm hover:bg-[#ecfdf3]"
+            >
+              Resume SUP-2027 chat
+            </Link>
+          </div>
         </div>
 
         <WhatsAppSupportDemo />

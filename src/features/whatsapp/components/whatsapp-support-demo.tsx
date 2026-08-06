@@ -54,6 +54,31 @@ const REPLY_BODY = `The issue occurred at Metro Line-4 Construction Site.
 The affected Employee IDs are EMP1023, EMP1088, and EMP1115.
 Please find the attendance report screenshot attached.`;
 
+const STORAGE_KEY = "bluconn-wa-support-demo";
+
+type PersistedDemo = {
+  ticketNumber: string;
+  ticketId: string;
+  seenSupportIds: string[];
+  repliedToSupportIds: string[];
+};
+
+function loadPersisted(): PersistedDemo | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedDemo;
+  } catch {
+    return null;
+  }
+}
+
+function savePersisted(data: PersistedDemo) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
 function nowTime() {
   return format(new Date(), "h:mm a");
 }
@@ -90,6 +115,8 @@ export function WhatsAppSupportDemo() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef(false);
   const seenSupportRef = useRef<Set<string>>(new Set());
+  const repliedSupportRef = useRef<Set<string>>(new Set());
+  const restoredRef = useRef(false);
 
   const pushMessage = useCallback((msg: Omit<ChatMessage, "id" | "time"> & { id?: string }) => {
     setMessages((prev) => [
@@ -101,6 +128,117 @@ export function WhatsAppSupportDemo() {
       },
     ]);
   }, []);
+
+  const persist = useCallback((ticketNumberValue: string, ticketIdValue: string) => {
+    savePersisted({
+      ticketNumber: ticketNumberValue,
+      ticketId: ticketIdValue,
+      seenSupportIds: Array.from(seenSupportRef.current),
+      repliedToSupportIds: Array.from(repliedSupportRef.current),
+    });
+  }, []);
+
+  // Restore session after navigating to Partner Portal and back
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+
+    async function restore() {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("ticket");
+      const saved = loadPersisted();
+      const number = fromQuery || saved?.ticketNumber || null;
+      if (!number) return;
+
+      const result = await getWhatsAppTicketSnapshot(number);
+      if (!result.ok || !result.ticket) return;
+
+      if (saved?.seenSupportIds) {
+        seenSupportRef.current = new Set(saved.seenSupportIds);
+      }
+      if (saved?.repliedToSupportIds) {
+        repliedSupportRef.current = new Set(saved.repliedToSupportIds);
+      }
+
+      setTicketNumber(result.ticket.ticketNumber);
+      setTicketId(result.ticket.id);
+      setTicketSnap(result.ticket);
+      persist(result.ticket.ticketNumber, result.ticket.id);
+
+      const restoredMessages: ChatMessage[] = [
+        {
+          id: "welcome",
+          from: "bot",
+          kind: "text",
+          text: "Hi! You're chatting with Bluconn Support. Type Support if you need help with attendance, payroll, or any Bluconn product issue.",
+          time: new Date(result.ticket.createdAt),
+        },
+        {
+          id: "user-support",
+          from: "user",
+          kind: "text",
+          text: "Support",
+          time: new Date(result.ticket.createdAt),
+          status: "read",
+        },
+        {
+          id: "raise-cta",
+          from: "bot",
+          kind: "cta",
+          text: "Need help? Please click the button below to provide more details so our support team can investigate your issue.",
+          time: new Date(result.ticket.createdAt),
+          ctaLabel: "Raise Support Ticket",
+          ctaAction: "raise",
+        },
+        {
+          id: "created",
+          from: "bot",
+          kind: "text",
+          text: `Your ticket ${result.ticket.ticketNumber} has been created successfully. We'll update you here whenever there is progress.`,
+          time: new Date(result.ticket.createdAt),
+        },
+      ];
+
+      const latest = result.ticket.latestSupportReply;
+      if (latest) {
+        const alreadyReplied = repliedSupportRef.current.has(latest.id);
+        if (!alreadyReplied) {
+          seenSupportRef.current.add(latest.id);
+          restoredMessages.push({
+            id: `update-${latest.id}`,
+            from: "bot",
+            kind: "cta",
+            text: `You have received a new update on your support ticket ${result.ticket.ticketNumber}.`,
+            time: new Date(latest.createdAt),
+            ctaLabel: "View & Reply",
+            ctaAction: "view",
+          });
+        } else {
+          restoredMessages.push({
+            id: `update-${latest.id}`,
+            from: "bot",
+            kind: "cta",
+            text: `You have received a new update on your support ticket ${result.ticket.ticketNumber}.`,
+            time: new Date(latest.createdAt),
+            ctaLabel: "View & Reply",
+            ctaAction: "view",
+          });
+          restoredMessages.push({
+            id: "thanks",
+            from: "bot",
+            kind: "text",
+            text: "Thanks! We have received your additional information. Our support team is investigating the issue and will update you soon.",
+            time: new Date(),
+          });
+        }
+      }
+
+      setMessages(restoredMessages);
+      persist(result.ticket.ticketNumber, result.ticket.id);
+    }
+
+    void restore();
+  }, [persist]);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
@@ -123,6 +261,7 @@ export function WhatsAppSupportDemo() {
         const latest = result.ticket.latestSupportReply;
         if (latest && !seenSupportRef.current.has(latest.id)) {
           seenSupportRef.current.add(latest.id);
+          persist(result.ticket.ticketNumber, result.ticket.id);
           pushMessage({
             from: "bot",
             kind: "cta",
@@ -142,7 +281,7 @@ export function WhatsAppSupportDemo() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [ticketNumber, browser, pushMessage]);
+  }, [ticketNumber, browser, pushMessage, persist]);
 
   function sendUserText(raw: string) {
     const text = raw.trim();
@@ -227,6 +366,8 @@ export function WhatsAppSupportDemo() {
       setTicketNumber(number);
       setTicketId(result.ticket.id);
       seenSupportRef.current = new Set();
+      repliedSupportRef.current = new Set();
+      persist(number, result.ticket.id);
       setSuccessText(
         `Your support ticket has been created successfully. Ticket ID: ${number}.`
       );
@@ -267,6 +408,12 @@ export function WhatsAppSupportDemo() {
       if (!result.ok) {
         toast.error(typeof result.error === "string" ? result.error : "Reply failed");
         return;
+      }
+      if (ticketSnap?.latestSupportReply?.id) {
+        repliedSupportRef.current.add(ticketSnap.latestSupportReply.id);
+      }
+      if (ticketNumber && ticketId) {
+        persist(ticketNumber, ticketId);
       }
       setSuccessText("Your response has been sent successfully.");
       setBrowser("success-reply");
