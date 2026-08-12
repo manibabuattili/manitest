@@ -61,6 +61,7 @@ npm run dev:restart
 | Customer — My Tickets | `/support` |
 | Customer — Ticket detail | `/support/SUP-xxxx` |
 | Partner — Support queue | `/partner/support` |
+| Partner — Support analytics | `/partner/support?tab=analytics` |
 | Partner — Ticket detail | `/partner/support/SUP-xxxx` |
 | WhatsApp — Mobile support chat | `/whatsapp` |
 

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { TicketPriority, TicketStatus } from "@prisma/client";
 import { getMetaOptions, listTickets } from "@/features/tickets/actions";
+import { getSupportAnalytics } from "@/features/tickets/analytics";
 import { PartnerTicketsView } from "@/features/tickets/components/partner-tickets-view";
 
 export default async function PartnerSupportPage({
@@ -10,8 +11,13 @@ export default async function PartnerSupportPage({
 }) {
   const params = await searchParams;
   const page = Number(params.page ?? "1") || 1;
+  const tab = params.tab === "analytics" ? "analytics" : "tickets";
+  const timeframe =
+    params.timeframe === "daily" || params.timeframe === "monthly"
+      ? params.timeframe
+      : "weekly";
 
-  const [result, meta] = await Promise.all([
+  const [result, meta, analytics] = await Promise.all([
     listTickets({
       q: params.q,
       status: (params.status as TicketStatus | "ALL" | undefined) ?? "ALL",
@@ -23,6 +29,10 @@ export default async function PartnerSupportPage({
       order: "desc",
     }),
     getMetaOptions(),
+    getSupportAnalytics({
+      timeframe,
+      company: params.company,
+    }),
   ]);
 
   return (
@@ -41,6 +51,8 @@ export default async function PartnerSupportPage({
         components={meta.components}
         labels={meta.labels}
         agents={meta.agents}
+        analytics={analytics}
+        initialTab={tab}
       />
     </Suspense>
   );

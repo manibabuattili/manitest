@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LabelPill } from "@/components/tickets/badges";
 import { CreateTicketDrawer } from "@/features/tickets/components/create-ticket-drawer";
+import { PartnerSupportAnalytics } from "@/features/tickets/components/partner-support-analytics";
 import { formatTicketDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import type { SupportAnalyticsData } from "@/features/tickets/analytics";
 
 type TicketRow = {
   id: string;
@@ -22,6 +24,8 @@ type TicketRow = {
   labels: { label: { id: string; name: string; color: string } }[];
 };
 
+type TabId = "tickets" | "analytics";
+
 export function PartnerTicketsView({
   tickets,
   total,
@@ -32,6 +36,8 @@ export function PartnerTicketsView({
   components,
   labels,
   agents,
+  analytics,
+  initialTab = "tickets",
 }: {
   tickets: TicketRow[];
   total: number;
@@ -42,9 +48,12 @@ export function PartnerTicketsView({
   components: { id: string; name: string }[];
   labels: { id: string; name: string }[];
   agents: { id: string; name: string }[];
+  analytics: SupportAnalyticsData;
+  initialTab?: TabId;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [tab, setTab] = useState<TabId>(initialTab);
   const [createOpen, setCreateOpen] = useState(false);
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [accountOpen, setAccountOpen] = useState(false);
@@ -62,6 +71,14 @@ export function PartnerTicketsView({
       if (!v || v === "ALL") params.delete(k);
       else params.set(k, v);
     });
+    startTransition(() => router.push(`/partner/support?${params.toString()}`));
+  }
+
+  function switchTab(next: TabId) {
+    setTab(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "analytics") params.set("tab", "analytics");
+    else params.delete("tab");
     startTransition(() => router.push(`/partner/support?${params.toString()}`));
   }
 
@@ -124,85 +141,113 @@ export function PartnerTicketsView({
         </Button>
       </div>
 
-      <div className="mt-6 flex gap-6 border-b border-gray-200 px-8">
-        <button className="border-b-2 border-brand-600 pb-3 text-sm font-semibold text-brand-700">
-          Tickets
-        </button>
-        <button className="pb-3 text-sm font-medium text-gray-500">Analytics</button>
-      </div>
-
-      <div className="mx-8 mt-0 overflow-hidden rounded-b-xl border border-t-0 border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-xs font-medium text-gray-500">
-            <tr>
-              <th className="w-10 px-4 py-3">
-                <Checkbox />
-              </th>
-              <th className="px-3 py-3">Ticket ID</th>
-              <th className="px-3 py-3">Subject</th>
-              <th className="px-3 py-3">Customer Name</th>
-              <th className="px-3 py-3">Account Name</th>
-              <th className="px-3 py-3">Label</th>
-              <th className="px-3 py-3">Last Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tickets.map((t) => (
-              <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50/80">
-                <td className="px-4 py-3">
-                  <Checkbox />
-                </td>
-                <td className="px-3 py-3 font-semibold text-gray-900">
-                  <Link href={`/partner/support/${t.ticketNumber}`} className="hover:text-brand-700">
-                    {t.ticketNumber}
-                  </Link>
-                </td>
-                <td className="px-3 py-3 text-gray-700">{t.subject}</td>
-                <td className="px-3 py-3 text-gray-700">{t.customer.name}</td>
-                <td className="px-3 py-3 text-gray-700">{t.customer.company}</td>
-                <td className="px-3 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {t.labels.map((l) => (
-                      <LabelPill key={l.label.id} name={l.label.name} color={l.label.color} />
-                    ))}
-                  </div>
-                </td>
-                <td className="px-3 py-3 text-gray-600">{formatTicketDate(t.updatedAt)}</td>
-              </tr>
-            ))}
-            {tickets.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                  No tickets match your filters.
-                </td>
-              </tr>
+      <div className="mt-6 px-8">
+        <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+          <button
+            type="button"
+            onClick={() => switchTab("tickets")}
+            className={cn(
+              "rounded-lg px-5 py-2.5 text-sm font-semibold transition",
+              tab === "tickets"
+                ? "bg-white text-brand-700 shadow-sm ring-1 ring-gray-200"
+                : "text-gray-500 hover:text-gray-700"
             )}
-          </tbody>
-        </table>
-        <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-500">
-          <span>
-            Showing page {page} of {totalPages || 1} · {total} tickets
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => updateParams({ page: String(page - 1) })}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => updateParams({ page: String(page + 1) })}
-            >
-              Next
-            </Button>
-          </div>
+          >
+            Tickets Raised
+          </button>
+          <button
+            type="button"
+            onClick={() => switchTab("analytics")}
+            className={cn(
+              "rounded-lg px-5 py-2.5 text-sm font-semibold transition",
+              tab === "analytics"
+                ? "bg-white text-brand-700 shadow-sm ring-1 ring-gray-200"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            Analytics
+          </button>
         </div>
       </div>
+
+      {tab === "analytics" ? (
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          <PartnerSupportAnalytics initialData={analytics} />
+        </div>
+      ) : (
+        <div className="mx-8 mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-gray-200 bg-gray-50 text-xs font-medium text-gray-500">
+              <tr>
+                <th className="w-10 px-4 py-3">
+                  <Checkbox />
+                </th>
+                <th className="px-3 py-3">Ticket ID</th>
+                <th className="px-3 py-3">Subject</th>
+                <th className="px-3 py-3">Customer Name</th>
+                <th className="px-3 py-3">Account Name</th>
+                <th className="px-3 py-3">Label</th>
+                <th className="px-3 py-3">Last Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tickets.map((t) => (
+                <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                  <td className="px-4 py-3">
+                    <Checkbox />
+                  </td>
+                  <td className="px-3 py-3 font-semibold text-gray-900">
+                    <Link href={`/partner/support/${t.ticketNumber}`} className="hover:text-brand-700">
+                      {t.ticketNumber}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-3 text-gray-700">{t.subject}</td>
+                  <td className="px-3 py-3 text-gray-700">{t.customer.name}</td>
+                  <td className="px-3 py-3 text-gray-700">{t.customer.company}</td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {t.labels.map((l) => (
+                        <LabelPill key={l.label.id} name={l.label.name} color={l.label.color} />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-gray-600">{formatTicketDate(t.updatedAt)}</td>
+                </tr>
+              ))}
+              {tickets.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                    No tickets match your filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-500">
+            <span>
+              Showing page {page} of {totalPages || 1} · {total} tickets
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => updateParams({ page: String(page - 1) })}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => updateParams({ page: String(page + 1) })}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <CreateTicketDrawer
         open={createOpen}
