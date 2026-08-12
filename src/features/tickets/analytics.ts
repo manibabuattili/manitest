@@ -47,28 +47,54 @@ function rangeFor(timeframe: AnalyticsTimeframe, now = new Date()) {
       start: startOfDay(d),
       end: endOfDay(d),
     }));
-    return { from, to, buckets, periodLabel: `${format(from, "dd MMM")} – ${format(to, "dd MMM yyyy")}` };
+    return {
+      from,
+      to,
+      buckets,
+      periodLabel: `${format(from, "dd MMM")} – ${format(to, "dd MMM yyyy")}`,
+      axisKind: "daily" as const,
+    };
   }
   if (timeframe === "weekly") {
     const from = startOfWeek(subWeeks(now, 5), { weekStartsOn: 1 });
     const to = endOfWeek(now, { weekStartsOn: 1 });
-    const buckets = eachWeekOfInterval({ start: from, end: to }, { weekStartsOn: 1 }).map((d) => ({
-      key: format(d, "yyyy-'W'II"),
-      label: `W${format(d, "II")}`,
-      start: startOfWeek(d, { weekStartsOn: 1 }),
-      end: endOfWeek(d, { weekStartsOn: 1 }),
-    }));
-    return { from, to, buckets, periodLabel: `${format(from, "dd MMM")} – ${format(to, "dd MMM yyyy")}` };
+    const buckets = eachWeekOfInterval({ start: from, end: to }, { weekStartsOn: 1 }).map((d) => {
+      const weekNo = format(d, "II");
+      const start = startOfWeek(d, { weekStartsOn: 1 });
+      const end = endOfWeek(d, { weekStartsOn: 1 });
+      return {
+        key: format(d, "yyyy-'W'II"),
+        label: `Week ${weekNo}`,
+        shortLabel: `W${weekNo}`,
+        rangeHint: `${format(start, "dd MMM")}–${format(end, "dd MMM")}`,
+        start,
+        end,
+      };
+    });
+    return {
+      from,
+      to,
+      buckets,
+      periodLabel: `${format(from, "dd MMM")} – ${format(to, "dd MMM yyyy")}`,
+      axisKind: "weekly" as const,
+    };
   }
   const from = startOfMonth(subMonths(now, 5));
   const to = endOfMonth(now);
   const buckets = eachMonthOfInterval({ start: from, end: to }).map((d) => ({
     key: format(d, "yyyy-MM"),
-    label: format(d, "MMM"),
+    label: format(d, "MMM yyyy"),
+    shortLabel: format(d, "MMM"),
     start: startOfMonth(d),
     end: endOfMonth(d),
   }));
-  return { from, to, buckets, periodLabel: `${format(from, "MMM yyyy")} – ${format(to, "MMM yyyy")}` };
+  return {
+    from,
+    to,
+    buckets,
+    periodLabel: `${format(from, "MMM yyyy")} – ${format(to, "MMM yyyy")}`,
+    axisKind: "monthly" as const,
+  };
 }
 
 export async function getSupportAnalytics(params: {
@@ -76,7 +102,7 @@ export async function getSupportAnalytics(params: {
   company?: string;
 } = {}) {
   const timeframe = params.timeframe ?? "weekly";
-  const { from, to, buckets, periodLabel } = rangeFor(timeframe);
+  const { from, to, buckets, periodLabel, axisKind } = rangeFor(timeframe);
   const now = new Date();
 
   const where: Prisma.TicketWhereInput = {
@@ -229,6 +255,7 @@ export async function getSupportAnalytics(params: {
 
   return {
     timeframe,
+    axisKind,
     periodLabel,
     lastUpdated: now.toISOString(),
     companies: companies.map((c) => c.company),

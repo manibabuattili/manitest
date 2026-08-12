@@ -28,6 +28,7 @@ import {
   Legend,
   AreaChart,
   Area,
+  LabelList,
 } from "recharts";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,13 @@ const TIMEFRAMES: { id: AnalyticsTimeframe; label: string }[] = [
   { id: "monthly", label: "Monthly" },
 ];
 
+const AXIS_TICK = { fill: "#667085", fontSize: 12 } as const;
+const VALUE_LABEL = {
+  fill: "#344054",
+  fontSize: 11,
+  fontWeight: 600,
+} as const;
+
 function formatDuration(hours: number) {
   if (!hours || hours <= 0) return "—";
   if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
@@ -51,6 +59,40 @@ function formatDuration(hours: number) {
   const m = Math.round((hours - h) * 60);
   if (h >= 48) return `${Math.floor(h / 24)}d ${h % 24}h`;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function hideZeroLabel(value: unknown) {
+  const n = typeof value === "number" ? value : Number(value);
+  return !n ? "" : String(n);
+}
+
+function PieValueLabel(props: {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  innerRadius?: number;
+  outerRadius?: number;
+  value?: number;
+}) {
+  const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, value = 0 } = props;
+  if (!value) return null;
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#FFFFFF"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={11}
+      fontWeight={700}
+    >
+      {value}
+    </text>
+  );
 }
 
 function ChartCard({
@@ -296,6 +338,8 @@ export function PartnerSupportAnalytics({
                       innerRadius={58}
                       outerRadius={88}
                       paddingAngle={2}
+                      labelLine={false}
+                      label={PieValueLabel}
                     >
                       {data.byStatus
                         .filter((s) => s.value > 0)
@@ -319,7 +363,12 @@ export function PartnerSupportAnalytics({
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
                       {s.name}
                     </span>
-                    <span className="font-semibold text-gray-900">{s.value}</span>
+                    <span className="font-semibold text-gray-900">
+                      {s.value}
+                      <span className="ml-1 text-xs font-medium text-gray-400">
+                        ({Math.round((s.value / statusTotal) * 100)}%)
+                      </span>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -329,20 +378,26 @@ export function PartnerSupportAnalytics({
           <ChartCard title="Tickets by Priority">
             <div className="h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.byPriority} layout="vertical" margin={{ left: 8, right: 12 }}>
+                <BarChart
+                  data={data.byPriority}
+                  layout="vertical"
+                  margin={{ left: 8, right: 28, top: 4, bottom: 4 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#EAECF0" />
-                  <XAxis type="number" tick={{ fill: "#667085", fontSize: 12 }} />
+                  <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
                   <YAxis
                     type="category"
                     dataKey="name"
                     width={70}
-                    tick={{ fill: "#667085", fontSize: 12 }}
+                    tick={AXIS_TICK}
+                    interval={0}
                   />
                   <Tooltip />
                   <Bar dataKey="value" radius={[0, 6, 6, 0]} name="Tickets">
                     {data.byPriority.map((p) => (
                       <Cell key={p.key} fill={p.color} />
                     ))}
+                    <LabelList dataKey="value" position="right" style={VALUE_LABEL} formatter={hideZeroLabel} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -350,52 +405,89 @@ export function PartnerSupportAnalytics({
           </ChartCard>
 
           <ChartCard title="Tickets by Component">
-            <div className="h-[260px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.byComponent} margin={{ left: 0, right: 8, bottom: 8 }}>
+                <BarChart
+                  data={data.byComponent}
+                  margin={{ left: 0, right: 8, top: 18, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
-                  <XAxis dataKey="name" tick={{ fill: "#667085", fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={56} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#667085", fontSize: 12 }} />
+                  <XAxis
+                    dataKey="name"
+                    tick={AXIS_TICK}
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis allowDecimals={false} tick={AXIS_TICK} />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#039855" radius={[6, 6, 0, 0]} name="Tickets" />
+                  <Bar dataKey="value" fill="#039855" radius={[6, 6, 0, 0]} name="Tickets">
+                    <LabelList dataKey="value" position="top" style={VALUE_LABEL} formatter={hideZeroLabel} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </ChartCard>
 
           <ChartCard title="By Customer (Account)">
-            <div className="h-[260px]">
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.byCustomer} margin={{ left: 0, right: 8, bottom: 8 }}>
+                <BarChart
+                  data={data.byCustomer}
+                  margin={{ left: 0, right: 8, top: 18, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
-                  <XAxis dataKey="name" tick={{ fill: "#667085", fontSize: 11 }} interval={0} angle={-18} textAnchor="end" height={60} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#667085", fontSize: 12 }} />
+                  <XAxis
+                    dataKey="name"
+                    tick={AXIS_TICK}
+                    interval={0}
+                    angle={-18}
+                    textAnchor="end"
+                    height={64}
+                  />
+                  <YAxis allowDecimals={false} tick={AXIS_TICK} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="tickets" fill="#027A48" radius={[4, 4, 0, 0]} name="Tickets" />
-                  <Bar dataKey="resolved" fill="#32D583" radius={[4, 4, 0, 0]} name="Resolved" />
-                  <Bar dataKey="breached" fill="#F79009" radius={[4, 4, 0, 0]} name="SLA Breached" />
+                  <Bar dataKey="tickets" fill="#027A48" radius={[4, 4, 0, 0]} name="Tickets">
+                    <LabelList dataKey="tickets" position="top" style={{ ...VALUE_LABEL, fill: "#027A48" }} formatter={hideZeroLabel} />
+                  </Bar>
+                  <Bar dataKey="resolved" fill="#32D583" radius={[4, 4, 0, 0]} name="Resolved">
+                    <LabelList dataKey="resolved" position="top" style={{ ...VALUE_LABEL, fill: "#027A48" }} formatter={hideZeroLabel} />
+                  </Bar>
+                  <Bar dataKey="breached" fill="#F79009" radius={[4, 4, 0, 0]} name="SLA Breached">
+                    <LabelList dataKey="breached" position="top" style={{ ...VALUE_LABEL, fill: "#B54708" }} formatter={hideZeroLabel} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </ChartCard>
 
           <ChartCard title="Issue Type (Labels)">
-            <div className="h-[260px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.byIssueType}>
+                <LineChart data={data.byIssueType} margin={{ left: 0, right: 12, top: 18, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
-                  <XAxis dataKey="name" tick={{ fill: "#667085", fontSize: 11 }} interval={0} angle={-18} textAnchor="end" height={60} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#667085", fontSize: 12 }} />
+                  <XAxis
+                    dataKey="name"
+                    tick={AXIS_TICK}
+                    interval={0}
+                    angle={-18}
+                    textAnchor="end"
+                    height={64}
+                  />
+                  <YAxis allowDecimals={false} tick={AXIS_TICK} />
                   <Tooltip />
                   <Line
                     type="monotone"
                     dataKey="value"
                     stroke="#12B76A"
                     strokeWidth={2.5}
-                    dot={{ r: 4, fill: "#039855" }}
+                    dot={{ r: 5, fill: "#039855", strokeWidth: 0 }}
                     name="Tickets"
-                  />
+                  >
+                    <LabelList dataKey="value" position="top" offset={10} style={VALUE_LABEL} formatter={hideZeroLabel} />
+                  </Line>
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -422,9 +514,9 @@ export function PartnerSupportAnalytics({
                   : "Ticket Volume by Month"
             }
           >
-            <div className="h-[260px]">
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data.volumeTrend}>
+                <AreaChart data={data.volumeTrend} margin={{ left: 0, right: 8, top: 20, bottom: 8 }}>
                   <defs>
                     <linearGradient id="createdFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#039855" stopOpacity={0.25} />
@@ -436,10 +528,29 @@ export function PartnerSupportAnalytics({
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
-                  <XAxis dataKey="period" tick={{ fill: "#667085", fontSize: 12 }} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#667085", fontSize: 12 }} />
+                  <XAxis
+                    dataKey="period"
+                    tick={AXIS_TICK}
+                    interval={0}
+                    angle={timeframe === "monthly" ? 0 : -15}
+                    textAnchor={timeframe === "monthly" ? "middle" : "end"}
+                    height={timeframe === "monthly" ? 36 : 56}
+                    label={{
+                      value:
+                        timeframe === "daily"
+                          ? "Date"
+                          : timeframe === "weekly"
+                            ? "Week number"
+                            : "Month",
+                      position: "insideBottom",
+                      offset: -2,
+                      fill: "#98A2B3",
+                      fontSize: 11,
+                    }}
+                  />
+                  <YAxis allowDecimals={false} tick={AXIS_TICK} />
                   <Tooltip />
-                  <Legend />
+                  <Legend verticalAlign="top" height={28} />
                   <Area
                     type="monotone"
                     dataKey="created"
@@ -447,7 +558,10 @@ export function PartnerSupportAnalytics({
                     fill="url(#createdFill)"
                     strokeWidth={2}
                     name="Created"
-                  />
+                    dot={{ r: 4, fill: "#027A48", strokeWidth: 0 }}
+                  >
+                    <LabelList dataKey="created" position="top" offset={8} style={VALUE_LABEL} formatter={hideZeroLabel} />
+                  </Area>
                   <Area
                     type="monotone"
                     dataKey="resolved"
@@ -455,18 +569,32 @@ export function PartnerSupportAnalytics({
                     fill="url(#resolvedFill)"
                     strokeWidth={2}
                     name="Resolved"
-                  />
+                    dot={{ r: 4, fill: "#12B76A", strokeWidth: 0 }}
+                  >
+                    <LabelList dataKey="resolved" position="top" offset={18} style={{ ...VALUE_LABEL, fill: "#027A48" }} formatter={hideZeroLabel} />
+                  </Area>
                   <Line
                     type="monotone"
                     dataKey="breached"
                     stroke="#F79009"
                     strokeWidth={2}
-                    dot={false}
                     name="SLA Breached"
-                  />
+                    dot={{ r: 4, fill: "#F79009", strokeWidth: 0 }}
+                  >
+                    <LabelList dataKey="breached" position="bottom" offset={8} style={{ ...VALUE_LABEL, fill: "#B54708" }} formatter={hideZeroLabel} />
+                  </Line>
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            <p className="mt-2 text-xs text-gray-400">
+              X-axis shows{" "}
+              {timeframe === "daily"
+                ? "calendar dates (dd MMM)"
+                : timeframe === "weekly"
+                  ? "ISO week numbers (Week 1–53)"
+                  : "calendar months (MMM yyyy)"}
+              .
+            </p>
           </ChartCard>
         </div>
       </section>
