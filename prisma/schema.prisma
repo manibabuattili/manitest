@@ -23,6 +23,15 @@ enum TicketPriority {
   CRITICAL
 }
 
+enum IssueType {
+  PRODUCT_GAP
+  CODE_ISSUE
+  NOT_AN_ISSUE
+  INFRA_ISSUE
+  THIRD_PARTY
+  USER_ERROR
+}
+
 enum MessageSenderType {
   CUSTOMER
   SUPPORT
@@ -74,6 +83,7 @@ model Ticket {
   description     String
   status          TicketStatus   @default(OPEN)
   priority        TicketPriority @default(MEDIUM)
+  issueType       IssueType?
   slaDueAt        DateTime
   slaBreached     Boolean        @default(false)
   unreadCount     Int            @default(0)
@@ -98,6 +108,7 @@ model Ticket {
 
   @@index([status])
   @@index([priority])
+  @@index([issueType])
   @@index([customerId])
   @@index([assigneeId])
   @@index([updatedAt])

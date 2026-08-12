@@ -18,7 +18,7 @@ import {
 } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
+import { PRIORITY_LABELS, STATUS_LABELS, ISSUE_TYPE_LABELS, ISSUE_TYPE_COLORS, ISSUE_TYPE_VALUES } from "@/lib/constants";
 
 export type AnalyticsTimeframe = "daily" | "weekly" | "monthly";
 
@@ -225,10 +225,28 @@ export async function getSupportAnalytics(params: {
       labelMap.set(label.name, cur);
     });
   });
-  const byIssueType = [...labelMap.entries()]
+  const byLabel = [...labelMap.entries()]
     .map(([name, v]) => ({ name, value: v.value, color: v.color }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
+
+  const byIssueType: { key: string; name: string; value: number; color: string }[] = [
+    ...ISSUE_TYPE_VALUES.map((key) => ({
+      key,
+      name: ISSUE_TYPE_LABELS[key],
+      value: tickets.filter((t) => t.issueType === key).length,
+      color: ISSUE_TYPE_COLORS[key],
+    })),
+  ];
+  const unsetIssueType = tickets.filter((t) => !t.issueType).length;
+  if (unsetIssueType > 0) {
+    byIssueType.push({
+      key: "UNSET",
+      name: "Not classified",
+      value: unsetIssueType,
+      color: "#D0D5DD",
+    });
+  }
 
   const volumeTrend = buckets.map((b) => {
     const created = tickets.filter((t) => t.createdAt >= b.start && t.createdAt <= b.end).length;
@@ -276,6 +294,7 @@ export async function getSupportAnalytics(params: {
     byPriority,
     byComponent,
     byCustomer,
+    byLabel,
     byIssueType,
     volumeTrend,
   };

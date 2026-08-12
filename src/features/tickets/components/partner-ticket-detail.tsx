@@ -22,9 +22,9 @@ import {
   updateTicketAction,
 } from "@/features/tickets/actions";
 import { formatShortDate, getSlaCountdown } from "@/lib/dates";
-import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
+import { PRIORITY_LABELS, STATUS_LABELS, ISSUE_TYPE_LABELS, ISSUE_TYPE_VALUES } from "@/lib/constants";
 import { SlaBadge } from "@/components/tickets/badges";
-import type { TicketPriority, TicketStatus } from "@prisma/client";
+import type { TicketPriority, TicketStatus, IssueType } from "@prisma/client";
 
 type TicketDetail = {
   id: string;
@@ -32,6 +32,7 @@ type TicketDetail = {
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
+  issueType: IssueType | null;
   slaDueAt: Date | string;
   slaBreached: boolean;
   createdAt: Date | string;
@@ -63,6 +64,7 @@ export function PartnerTicketDetailView({
   const [componentId, setComponentId] = useState(ticket.component?.id ?? "");
   const [assigneeId, setAssigneeId] = useState(ticket.assignee?.id ?? "");
   const [labelId, setLabelId] = useState(ticket.labels[0]?.label.id ?? "");
+  const [issueType, setIssueType] = useState<IssueType | "">(ticket.issueType ?? "");
 
   const sla = getSlaCountdown(ticket.slaDueAt, ticket.slaBreached);
   const closed = ticket.status === "CLOSED";
@@ -74,6 +76,7 @@ export function PartnerTicketDetailView({
         subject,
         status,
         priority,
+        issueType: issueType || null,
         componentId: componentId || null,
         assigneeId: assigneeId || null,
         labelIds: labelId ? [labelId] : [],
@@ -200,6 +203,24 @@ export function PartnerTicketDetailView({
                   {labels.map((l) => (
                     <SelectItem key={l.id} value={l.id}>
                       {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Issue Type">
+              <Select
+                value={issueType || undefined}
+                onValueChange={(v) => setIssueType(v as IssueType)}
+                disabled={closed}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select issue type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ISSUE_TYPE_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {ISSUE_TYPE_LABELS[value]}
                     </SelectItem>
                   ))}
                 </SelectContent>

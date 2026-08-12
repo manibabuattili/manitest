@@ -22,6 +22,35 @@ export const PRIORITY_LABELS: Record<TicketPriority, string> = {
   CRITICAL: "Critical",
 };
 
+export const ISSUE_TYPE_VALUES = [
+  "PRODUCT_GAP",
+  "CODE_ISSUE",
+  "NOT_AN_ISSUE",
+  "INFRA_ISSUE",
+  "THIRD_PARTY",
+  "USER_ERROR",
+] as const;
+
+export type IssueTypeValue = (typeof ISSUE_TYPE_VALUES)[number];
+
+export const ISSUE_TYPE_LABELS: Record<IssueTypeValue, string> = {
+  PRODUCT_GAP: "Product gap",
+  CODE_ISSUE: "Code issue",
+  NOT_AN_ISSUE: "Non an Issue",
+  INFRA_ISSUE: "Infra issue",
+  THIRD_PARTY: "Third party",
+  USER_ERROR: "User error",
+};
+
+export const ISSUE_TYPE_COLORS: Record<IssueTypeValue, string> = {
+  PRODUCT_GAP: "#7F56D9",
+  CODE_ISSUE: "#F04438",
+  NOT_AN_ISSUE: "#98A2B3",
+  INFRA_ISSUE: "#F79009",
+  THIRD_PARTY: "#2E90FA",
+  USER_ERROR: "#12B76A",
+};
+
 export const STATUS_FLOW: TicketStatus[] = [
   "OPEN",
   "IN_PROGRESS",

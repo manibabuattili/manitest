@@ -1,5 +1,5 @@
-import { PrismaClient, TicketPriority, TicketStatus, MessageSenderType } from "@prisma/client";
-import { COMPONENT_NAMES, LABEL_DEFS, SLA_HOURS } from "../src/lib/constants";
+import { PrismaClient, TicketPriority, TicketStatus, MessageSenderType, IssueType } from "@prisma/client";
+import { COMPONENT_NAMES, LABEL_DEFS, SLA_HOURS, ISSUE_TYPE_VALUES } from "../src/lib/constants";
 
 const prisma = new PrismaClient();
 
@@ -150,6 +150,7 @@ async function main() {
     "CLOSED",
   ];
   const priorities: TicketPriority[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+  const issueTypes = [...ISSUE_TYPE_VALUES] as IssueType[];
 
   let ticketCounter = 2000;
   let totalMessages = 0;
@@ -167,6 +168,7 @@ async function main() {
     const subject = pick(SUBJECTS);
     const due = slaDue(priority, createdAt);
     const breached = due < new Date() && status !== "RESOLVED" && status !== "CLOSED";
+    const issueType = i % 4 === 0 ? null : pick(issueTypes);
 
     const ticket = await prisma.ticket.create({
       data: {
@@ -175,6 +177,7 @@ async function main() {
         description: `The ${subject.toLowerCase()} is affecting operations for ${customer.company}. Need assistance resolving this promptly.`,
         status,
         priority,
+        issueType,
         slaDueAt: due,
         slaBreached: breached,
         createdAt,

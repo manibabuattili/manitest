@@ -463,10 +463,41 @@ export function PartnerSupportAnalytics({
             </div>
           </ChartCard>
 
-          <ChartCard title="Issue Type (Labels)">
+          <ChartCard title="Issue Type">
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.byIssueType} margin={{ left: 0, right: 12, top: 18, bottom: 8 }}>
+                <BarChart
+                  data={data.byIssueType.filter((s) => s.value > 0)}
+                  margin={{ left: 0, right: 8, top: 18, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
+                  <XAxis
+                    dataKey="name"
+                    tick={AXIS_TICK}
+                    interval={0}
+                    angle={-18}
+                    textAnchor="end"
+                    height={64}
+                  />
+                  <YAxis allowDecimals={false} tick={AXIS_TICK} />
+                  <Tooltip />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} name="Tickets">
+                    {data.byIssueType
+                      .filter((s) => s.value > 0)
+                      .map((s) => (
+                        <Cell key={s.key} fill={s.color} />
+                      ))}
+                    <LabelList dataKey="value" position="top" style={VALUE_LABEL} formatter={hideZeroLabel} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartCard>
+
+          <ChartCard title="Labels">
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.byLabel} margin={{ left: 0, right: 12, top: 18, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
                   <XAxis
                     dataKey="name"
@@ -492,7 +523,7 @@ export function PartnerSupportAnalytics({
               </ResponsiveContainer>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {data.byIssueType.slice(0, 6).map((item) => (
+              {data.byLabel.slice(0, 6).map((item) => (
                 <span
                   key={item.name}
                   className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-600"

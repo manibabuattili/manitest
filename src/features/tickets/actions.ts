@@ -406,6 +406,9 @@ export async function updateTicketAction(raw: unknown) {
     data.priority = updates.priority;
     data.slaDueAt = slaDueAt(updates.priority, ticket.createdAt);
   }
+  if (updates.issueType !== undefined) {
+    data.issueType = updates.issueType;
+  }
   if (updates.componentId !== undefined) {
     data.component = updates.componentId
       ? { connect: { id: updates.componentId } }
