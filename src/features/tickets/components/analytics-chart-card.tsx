@@ -143,6 +143,14 @@ function ChartRenderer({
   timeframe: AnalyticsTimeframe;
   height: number;
 }) {
+  if (!series.length) {
+    return (
+      <div style={{ height }} className="flex w-full items-center justify-center text-sm text-gray-400">
+        Select at least one metric to display
+      </div>
+    );
+  }
+
   if (type === "pie") {
     const pieData = aggregateForPie(points, series);
     return (
