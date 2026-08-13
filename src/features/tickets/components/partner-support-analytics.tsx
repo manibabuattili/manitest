@@ -536,6 +536,123 @@ export function PartnerSupportAnalytics({
             </div>
           </ChartCard>
 
+          <ChartCard title="SLA Breach Overview">
+            <div className="flex flex-col items-center gap-4 sm:flex-row">
+              <div className="h-[220px] w-full max-w-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.slaBreachSummary.filter((s) => s.value > 0)}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={58}
+                      outerRadius={88}
+                      paddingAngle={2}
+                      labelLine={false}
+                      label={PieValueLabel}
+                    >
+                      {data.slaBreachSummary
+                        .filter((s) => s.value > 0)
+                        .map((s) => (
+                          <Cell key={s.key} fill={s.color} />
+                        ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="w-full space-y-3">
+                <ul className="space-y-2">
+                  {data.slaBreachSummary.map((s) => (
+                    <li key={s.key} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-gray-600">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
+                        {s.name}
+                      </span>
+                      <span className="font-semibold text-gray-900">{s.value}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2">
+                  <p className="text-xs font-medium text-red-700">Breach rate</p>
+                  <p className="text-2xl font-semibold text-red-700">
+                    {data.overview.total > 0
+                      ? Math.round((data.overview.breached / data.overview.total) * 100)
+                      : 0}
+                    %
+                  </p>
+                  <p className="text-xs text-red-600">
+                    SLA compliance {data.overview.slaCompliancePct}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          </ChartCard>
+
+          <ChartCard
+            title={
+              timeframe === "daily"
+                ? "SLA Breaches by Day"
+                : timeframe === "weekly"
+                  ? "SLA Breaches by Week"
+                  : "SLA Breaches by Month"
+            }
+          >
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.volumeTrend} margin={{ left: 0, right: 8, top: 18, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
+                  <XAxis
+                    dataKey="period"
+                    tick={AXIS_TICK}
+                    interval={0}
+                    angle={timeframe === "monthly" ? 0 : -15}
+                    textAnchor={timeframe === "monthly" ? "middle" : "end"}
+                    height={timeframe === "monthly" ? 36 : 56}
+                  />
+                  <YAxis allowDecimals={false} tick={AXIS_TICK} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="onTrack" fill="#12B76A" radius={[4, 4, 0, 0]} name="On Track">
+                    <LabelList dataKey="onTrack" position="top" style={{ ...VALUE_LABEL, fill: "#027A48" }} formatter={hideZeroLabel} />
+                  </Bar>
+                  <Bar dataKey="breached" fill="#F04438" radius={[4, 4, 0, 0]} name="Breached">
+                    <LabelList dataKey="breached" position="top" style={{ ...VALUE_LABEL, fill: "#B42318" }} formatter={hideZeroLabel} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-3 h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.slaBreachByPriority} margin={{ left: 0, right: 12, top: 16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EAECF0" />
+                  <XAxis dataKey="name" tick={AXIS_TICK} interval={0} />
+                  <YAxis allowDecimals={false} tick={AXIS_TICK} unit="%" />
+                  <Tooltip formatter={(value: number) => [`${value}%`, "Breach rate"]} />
+                  <Line
+                    type="monotone"
+                    dataKey="breachRate"
+                    stroke="#F04438"
+                    strokeWidth={2.5}
+                    dot={{ r: 5, fill: "#F04438", strokeWidth: 0 }}
+                    name="Breach rate %"
+                  >
+                    <LabelList
+                      dataKey="breachRate"
+                      position="top"
+                      offset={10}
+                      style={{ ...VALUE_LABEL, fill: "#B42318" }}
+                      formatter={(v: unknown) => (Number(v) ? `${v}%` : "")}
+                    />
+                  </Line>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="mt-2 text-xs text-gray-400">
+              Top: breaches over time · Bottom: breach rate by priority
+            </p>
+          </ChartCard>
+
           <ChartCard
             title={
               timeframe === "daily"

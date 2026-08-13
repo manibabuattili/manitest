@@ -257,13 +257,46 @@ export async function getSupportAnalytics(params: {
     const breachedCount = tickets.filter(
       (t) => t.slaBreached && t.createdAt >= b.start && t.createdAt <= b.end
     ).length;
+    const onTrackCount = Math.max(0, created - breachedCount);
     return {
       period: b.label,
       created,
       resolved: resolvedCount,
       breached: breachedCount,
+      onTrack: onTrackCount,
+      breachRate: created > 0 ? Math.round((breachedCount / created) * 100) : 0,
     };
   });
+
+  const slaBreachSummary = [
+    {
+      key: "ON_TRACK",
+      name: "On Track",
+      value: Math.max(0, total - breached),
+      color: "#12B76A",
+    },
+    {
+      key: "BREACHED",
+      name: "Breached",
+      value: breached,
+      color: "#F04438",
+    },
+  ];
+
+  const slaBreachByPriority = (Object.keys(PRIORITY_LABELS) as Array<keyof typeof PRIORITY_LABELS>).map(
+    (priority) => {
+      const group = tickets.filter((t) => t.priority === priority);
+      const breachedCount = group.filter((t) => t.slaBreached).length;
+      return {
+        key: priority,
+        name: PRIORITY_LABELS[priority],
+        total: group.length,
+        breached: breachedCount,
+        onTrack: Math.max(0, group.length - breachedCount),
+        breachRate: group.length > 0 ? Math.round((breachedCount / group.length) * 100) : 0,
+      };
+    }
+  );
 
   const companies = await prisma.customer.findMany({
     distinct: ["company"],
@@ -297,6 +330,8 @@ export async function getSupportAnalytics(params: {
     byLabel,
     byIssueType,
     volumeTrend,
+    slaBreachSummary,
+    slaBreachByPriority,
   };
 }
 
