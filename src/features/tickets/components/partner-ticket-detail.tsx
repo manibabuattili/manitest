@@ -21,10 +21,11 @@ import {
   closeTicketAction,
   updateTicketAction,
 } from "@/features/tickets/actions";
-import { formatShortDate, getSlaCountdown } from "@/lib/dates";
+import { formatShortDate, getSlaCountdown, getSlaDaysRemaining, computeSlaDueFromDays } from "@/lib/dates";
 import { PRIORITY_LABELS, STATUS_LABELS, ISSUE_TYPE_LABELS, ISSUE_TYPE_VALUES } from "@/lib/constants";
 import { SlaBadge } from "@/components/tickets/badges";
 import type { TicketPriority, TicketStatus, IssueType } from "@prisma/client";
+import { differenceInCalendarDays, startOfDay } from "date-fns";
 
 type TicketDetail = {
   id: string;
@@ -33,6 +34,7 @@ type TicketDetail = {
   status: TicketStatus;
   priority: TicketPriority;
   issueType: IssueType | null;
+  slaDays: number | null;
   slaDueAt: Date | string;
   slaBreached: boolean;
   createdAt: Date | string;
@@ -44,6 +46,14 @@ type TicketDetail = {
   attachments: { id: string; fileName: string; fileSize: number }[];
   messages: Parameters<typeof ConversationThread>[0]["messages"];
 };
+
+function initialSlaDays(ticket: TicketDetail): string {
+  if (ticket.slaDays != null) return String(ticket.slaDays);
+  const created = startOfDay(new Date(ticket.createdAt));
+  const due = startOfDay(new Date(ticket.slaDueAt));
+  const days = Math.max(0, differenceInCalendarDays(due, created));
+  return String(days);
+}
 
 export function PartnerTicketDetailView({
   ticket,
@@ -65,11 +75,24 @@ export function PartnerTicketDetailView({
   const [assigneeId, setAssigneeId] = useState(ticket.assignee?.id ?? "");
   const [labelId, setLabelId] = useState(ticket.labels[0]?.label.id ?? "");
   const [issueType, setIssueType] = useState<IssueType | "">(ticket.issueType ?? "");
+  const [slaDaysInput, setSlaDaysInput] = useState(initialSlaDays(ticket));
 
-  const sla = getSlaCountdown(ticket.slaDueAt, ticket.slaBreached);
+  const parsedSlaDays = Number.parseInt(slaDaysInput, 10);
+  const previewDueAt =
+    Number.isFinite(parsedSlaDays) && parsedSlaDays >= 0
+      ? computeSlaDueFromDays(ticket.createdAt, parsedSlaDays)
+      : ticket.slaDueAt;
+  const daysLeft = getSlaDaysRemaining(previewDueAt);
+  const slaBreached = daysLeft < 0 || ticket.slaBreached;
+  const sla = getSlaCountdown(previewDueAt, slaBreached);
   const closed = ticket.status === "CLOSED";
 
   function save() {
+    const slaDays =
+      slaDaysInput.trim() === "" || !Number.isFinite(parsedSlaDays)
+        ? null
+        : Math.max(0, parsedSlaDays);
+
     startTransition(async () => {
       const result = await updateTicketAction({
         ticketId: ticket.id,
@@ -77,6 +100,7 @@ export function PartnerTicketDetailView({
         status,
         priority,
         issueType: issueType || null,
+        slaDays,
         componentId: componentId || null,
         assigneeId: assigneeId || null,
         labelIds: labelId ? [labelId] : [],
@@ -268,9 +292,46 @@ export function PartnerTicketDetailView({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="SLA">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                {sla.label}
+            <Field label="SLA (days)">
+              <Input
+                type="number"
+                min={0}
+                max={365}
+                inputMode="numeric"
+                placeholder="e.g. 3"
+                value={slaDaysInput}
+                disabled={closed}
+                onChange={(e) => setSlaDaysInput(e.target.value)}
+              />
+              <p className="text-xs text-gray-400">
+                Manual SLA window in days from ticket created date.
+              </p>
+            </Field>
+            <Field label="SLA Due">
+              <div
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  daysLeft < 0
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-gray-200 bg-gray-50 text-gray-700"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold tabular-nums">
+                    {daysLeft}
+                    <span className="ml-1 font-normal text-gray-500">
+                      {Math.abs(daysLeft) === 1 ? "day" : "days"}
+                    </span>
+                  </span>
+                  {daysLeft < 0 && (
+                    <span className="rounded-md bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+                      Breached
+                    </span>
+                  )}
+                </div>
+                <p className={`mt-1 text-xs ${daysLeft < 0 ? "text-red-600" : "text-gray-500"}`}>
+                  Due {formatShortDate(previewDueAt)}
+                  {daysLeft < 0 ? " (Breached)" : ""}
+                </p>
               </div>
             </Field>
 

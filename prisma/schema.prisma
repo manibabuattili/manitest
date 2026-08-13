@@ -84,6 +84,7 @@ model Ticket {
   status          TicketStatus   @default(OPEN)
   priority        TicketPriority @default(MEDIUM)
   issueType       IssueType?
+  slaDays         Int?
   slaDueAt        DateTime
   slaBreached     Boolean        @default(false)
   unreadCount     Int            @default(0)

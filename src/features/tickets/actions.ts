@@ -10,6 +10,7 @@ import {
   WHATSAPP_CUSTOMER_EMAIL,
   WHATSAPP_DEMO_TICKET,
 } from "@/lib/constants";
+import { computeSlaDueFromDays, getSlaDaysRemaining } from "@/lib/dates";
 import { createTicketSchema, replySchema, updateTicketSchema } from "./schemas";
 
 async function nextTicketNumber() {
@@ -404,7 +405,19 @@ export async function updateTicketAction(raw: unknown) {
   if (updates.subject) data.subject = updates.subject;
   if (updates.priority) {
     data.priority = updates.priority;
-    data.slaDueAt = slaDueAt(updates.priority, ticket.createdAt);
+    // Only auto-recalculate from priority when SLA days is not being set manually
+    if (updates.slaDays === undefined && ticket.slaDays == null) {
+      data.slaDueAt = slaDueAt(updates.priority, ticket.createdAt);
+      data.slaBreached = getSlaDaysRemaining(data.slaDueAt as Date) < 0;
+    }
+  }
+  if (updates.slaDays !== undefined) {
+    data.slaDays = updates.slaDays;
+    if (updates.slaDays != null) {
+      const due = computeSlaDueFromDays(ticket.createdAt, updates.slaDays);
+      data.slaDueAt = due;
+      data.slaBreached = getSlaDaysRemaining(due) < 0;
+    }
   }
   if (updates.issueType !== undefined) {
     data.issueType = updates.issueType;

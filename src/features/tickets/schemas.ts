@@ -46,6 +46,7 @@ export const updateTicketSchema = z.object({
     ])
     .nullable()
     .optional(),
+  slaDays: z.number().int().min(0).max(365).nullable().optional(),
   componentId: z.string().nullable().optional(),
   assigneeId: z.string().nullable().optional(),
   labelIds: z.array(z.string()).optional(),
