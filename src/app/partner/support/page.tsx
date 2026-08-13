@@ -12,10 +12,6 @@ export default async function PartnerSupportPage({
   const params = await searchParams;
   const page = Number(params.page ?? "1") || 1;
   const tab = params.tab === "analytics" ? "analytics" : "tickets";
-  const timeframe =
-    params.timeframe === "daily" || params.timeframe === "monthly"
-      ? params.timeframe
-      : "weekly";
 
   const [result, meta, analytics] = await Promise.all([
     listTickets({
@@ -30,7 +26,6 @@ export default async function PartnerSupportPage({
     }),
     getMetaOptions(),
     getSupportAnalytics({
-      timeframe,
       company: params.company,
     }),
   ]);

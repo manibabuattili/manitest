@@ -172,7 +172,7 @@ export function PartnerTicketsView({
 
       {tab === "analytics" ? (
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          <PartnerSupportAnalytics initialData={analytics} />
+          <PartnerSupportAnalytics initialData={analytics} companies={companies} />
         </div>
       ) : (
         <div className="mx-8 mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
