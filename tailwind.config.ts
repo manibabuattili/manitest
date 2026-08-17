@@ -5,25 +5,18 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-ibm-plex-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-ibm-plex-mono)", "ui-monospace", "monospace"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       colors: {
-        ink: {
-          950: "#070b14",
-          900: "#0b1220",
-          850: "#101826",
-          800: "#152033",
-          700: "#1c2b44",
-          600: "#2a3d5c",
+        brand: {
+          DEFAULT: "#43a047",
+          dark: "#2e7d32",
+          soft: "#e8f5e9",
         },
-        accent: {
-          DEFAULT: "#2dd4bf",
-          dim: "#115e59",
+        nav: {
+          active: "#e6f4f4",
         },
-      },
-      boxShadow: {
-        panel: "0 0 0 1px rgba(148, 163, 184, 0.08), 0 18px 40px rgba(0,0,0,0.28)",
+        side: "#f4f5f7",
       },
     },
   },
