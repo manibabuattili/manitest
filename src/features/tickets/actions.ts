@@ -79,20 +79,25 @@ export async function getMetaOptions() {
 
 export type TicketListParams = {
   q?: string;
-  status?: TicketStatus | "ALL";
+  status?: TicketStatus | TicketStatus[] | "ALL";
   priority?: TicketPriority | "ALL";
   company?: string;
-  assigneeId?: string | "ALL" | "UNASSIGNED";
-  labelId?: string | "ALL";
-  componentId?: string | "ALL";
-  /** "yes" | "no" | "ALL" */
-  slaBreached?: "yes" | "no" | "ALL";
+  assigneeId?: string | string[] | "ALL" | "UNASSIGNED";
+  labelId?: string | string[] | "ALL";
+  componentId?: string | string[] | "ALL";
+  /** "yes" | "no" | both | "ALL" */
+  slaBreached?: "yes" | "no" | "ALL" | Array<"yes" | "no">;
   page?: number;
   pageSize?: number;
   sort?: "updatedAt" | "createdAt" | "priority" | "status";
   order?: "asc" | "desc";
   customerId?: string;
 };
+
+function asList(value?: string | string[] | "ALL"): string[] {
+  if (!value || value === "ALL") return [];
+  return (Array.isArray(value) ? value : [value]).filter((v) => v && v !== "ALL");
+}
 
 export async function listTickets(params: TicketListParams = {}) {
   const {
@@ -122,22 +127,53 @@ export async function listTickets(params: TicketListParams = {}) {
     data: { slaBreached: true },
   });
 
+  const statuses = asList(status as string | string[] | "ALL") as TicketStatus[];
+  const assignees = asList(assigneeId as string | string[] | "ALL");
+  const labelIds = asList(labelId as string | string[] | "ALL");
+  const componentIds = asList(componentId as string | string[] | "ALL");
+  const slaValues = asList(
+    Array.isArray(slaBreached)
+      ? slaBreached
+      : slaBreached && slaBreached !== "ALL"
+        ? [slaBreached]
+        : [],
+  ) as Array<"yes" | "no">;
+
   const where: Prisma.TicketWhereInput = {};
   if (customerId) where.customerId = customerId;
-  if (status && status !== "ALL") where.status = status;
+  if (statuses.length === 1) where.status = statuses[0];
+  else if (statuses.length > 1) where.status = { in: statuses };
   if (priority && priority !== "ALL") where.priority = priority;
   if (company && company !== "ALL") where.customer = { company };
-  if (assigneeId && assigneeId !== "ALL") {
-    where.assigneeId = assigneeId === "UNASSIGNED" ? null : assigneeId;
+
+  if (assignees.length === 1) {
+    where.assigneeId = assignees[0] === "UNASSIGNED" ? null : assignees[0];
+  } else if (assignees.length > 1) {
+    const ids = assignees.filter((id) => id !== "UNASSIGNED");
+    const includeUnassigned = assignees.includes("UNASSIGNED");
+    const assigneeOr: Prisma.TicketWhereInput[] = [];
+    if (ids.length) assigneeOr.push({ assigneeId: { in: ids } });
+    if (includeUnassigned) assigneeOr.push({ assigneeId: null });
+    if (assigneeOr.length) where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), { OR: assigneeOr }];
   }
-  if (labelId && labelId !== "ALL") {
-    where.labels = { some: { labelId } };
+
+  if (labelIds.length === 1) {
+    where.labels = { some: { labelId: labelIds[0] } };
+  } else if (labelIds.length > 1) {
+    where.labels = { some: { labelId: { in: labelIds } } };
   }
-  if (componentId && componentId !== "ALL") {
-    where.componentId = componentId;
+
+  if (componentIds.length === 1) {
+    where.componentId = componentIds[0];
+  } else if (componentIds.length > 1) {
+    where.componentId = { in: componentIds };
   }
-  if (slaBreached === "yes") where.slaBreached = true;
-  if (slaBreached === "no") where.slaBreached = false;
+
+  if (slaValues.length === 1) {
+    where.slaBreached = slaValues[0] === "yes";
+  }
+  // if both yes and no selected (or none), do not filter by SLA
+
   if (q) {
     where.OR = [
       { ticketNumber: { contains: q } },

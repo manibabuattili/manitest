@@ -4,9 +4,12 @@ import { getMetaOptions, listTickets } from "@/features/tickets/actions";
 import { getSupportAnalytics } from "@/features/tickets/analytics";
 import { PartnerTicketsView } from "@/features/tickets/components/partner-tickets-view";
 
-function asSlaFilter(value?: string): "yes" | "no" | "ALL" {
-  if (value === "yes" || value === "no") return value;
-  return "ALL";
+function splitCsv(value?: string): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 }
 
 export default async function PartnerSupportPage({
@@ -18,16 +21,24 @@ export default async function PartnerSupportPage({
   const page = Number(params.page ?? "1") || 1;
   const tab = params.tab === "analytics" ? "analytics" : "tickets";
 
+  const statuses = splitCsv(params.status) as TicketStatus[];
+  const assignees = splitCsv(params.assigneeId);
+  const labelIds = splitCsv(params.labelId);
+  const componentIds = splitCsv(params.componentId);
+  const slaBreached = splitCsv(params.slaBreached).filter(
+    (v): v is "yes" | "no" => v === "yes" || v === "no",
+  );
+
   const [result, meta, analytics] = await Promise.all([
     listTickets({
       q: params.q,
-      status: (params.status as TicketStatus | "ALL" | undefined) ?? "ALL",
+      status: statuses.length ? statuses : "ALL",
       priority: (params.priority as TicketPriority | "ALL" | undefined) ?? "ALL",
       company: params.company,
-      assigneeId: params.assigneeId ?? "ALL",
-      labelId: params.labelId ?? "ALL",
-      componentId: params.componentId ?? "ALL",
-      slaBreached: asSlaFilter(params.slaBreached),
+      assigneeId: assignees.length ? assignees : "ALL",
+      labelId: labelIds.length ? labelIds : "ALL",
+      componentId: componentIds.length ? componentIds : "ALL",
+      slaBreached: slaBreached.length ? slaBreached : "ALL",
       page,
       pageSize: 20,
       sort: "updatedAt",
