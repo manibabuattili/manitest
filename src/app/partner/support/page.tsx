@@ -4,6 +4,11 @@ import { getMetaOptions, listTickets } from "@/features/tickets/actions";
 import { getSupportAnalytics } from "@/features/tickets/analytics";
 import { PartnerTicketsView } from "@/features/tickets/components/partner-tickets-view";
 
+function asSlaFilter(value?: string): "yes" | "no" | "ALL" {
+  if (value === "yes" || value === "no") return value;
+  return "ALL";
+}
+
 export default async function PartnerSupportPage({
   searchParams,
 }: {
@@ -19,6 +24,10 @@ export default async function PartnerSupportPage({
       status: (params.status as TicketStatus | "ALL" | undefined) ?? "ALL",
       priority: (params.priority as TicketPriority | "ALL" | undefined) ?? "ALL",
       company: params.company,
+      assigneeId: params.assigneeId ?? "ALL",
+      labelId: params.labelId ?? "ALL",
+      componentId: params.componentId ?? "ALL",
+      slaBreached: asSlaFilter(params.slaBreached),
       page,
       pageSize: 20,
       sort: "updatedAt",

@@ -82,6 +82,11 @@ export type TicketListParams = {
   status?: TicketStatus | "ALL";
   priority?: TicketPriority | "ALL";
   company?: string;
+  assigneeId?: string | "ALL" | "UNASSIGNED";
+  labelId?: string | "ALL";
+  componentId?: string | "ALL";
+  /** "yes" | "no" | "ALL" */
+  slaBreached?: "yes" | "no" | "ALL";
   page?: number;
   pageSize?: number;
   sort?: "updatedAt" | "createdAt" | "priority" | "status";
@@ -95,6 +100,10 @@ export async function listTickets(params: TicketListParams = {}) {
     status,
     priority,
     company,
+    assigneeId,
+    labelId,
+    componentId,
+    slaBreached,
     page = 1,
     pageSize = 20,
     sort = "updatedAt",
@@ -102,11 +111,33 @@ export async function listTickets(params: TicketListParams = {}) {
     customerId,
   } = params;
 
+  const now = new Date();
+  // Keep SLA breach flags in sync before filtering / listing
+  await prisma.ticket.updateMany({
+    where: {
+      slaBreached: false,
+      slaDueAt: { lt: now },
+      status: { notIn: ["RESOLVED", "CLOSED"] },
+    },
+    data: { slaBreached: true },
+  });
+
   const where: Prisma.TicketWhereInput = {};
   if (customerId) where.customerId = customerId;
   if (status && status !== "ALL") where.status = status;
   if (priority && priority !== "ALL") where.priority = priority;
   if (company && company !== "ALL") where.customer = { company };
+  if (assigneeId && assigneeId !== "ALL") {
+    where.assigneeId = assigneeId === "UNASSIGNED" ? null : assigneeId;
+  }
+  if (labelId && labelId !== "ALL") {
+    where.labels = { some: { labelId } };
+  }
+  if (componentId && componentId !== "ALL") {
+    where.componentId = componentId;
+  }
+  if (slaBreached === "yes") where.slaBreached = true;
+  if (slaBreached === "no") where.slaBreached = false;
   if (q) {
     where.OR = [
       { ticketNumber: { contains: q } },
@@ -132,29 +163,8 @@ export async function listTickets(params: TicketListParams = {}) {
     }),
   ]);
 
-  // refresh SLA breach flags
-  const now = new Date();
-  await Promise.all(
-    tickets
-      .filter(
-        (t) =>
-          !t.slaBreached &&
-          t.slaDueAt < now &&
-          t.status !== "RESOLVED" &&
-          t.status !== "CLOSED"
-      )
-      .map((t) =>
-        prisma.ticket.update({ where: { id: t.id }, data: { slaBreached: true } })
-      )
-  );
-
   return {
-    tickets: tickets.map((t) => ({
-      ...t,
-      slaBreached:
-        t.slaBreached ||
-        (t.slaDueAt < now && t.status !== "RESOLVED" && t.status !== "CLOSED"),
-    })),
+    tickets,
     total,
     page,
     pageSize,
