@@ -199,25 +199,28 @@
       color: var(--brand-700);
     }
 
-    .reg-tag {
-      display: inline-flex; align-items: center; gap: 4px;
-      height: 20px; padding: 0 7px; border-radius: 999px;
-      background: var(--brand-50); color: var(--brand-700);
-      font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
-      border: 1px solid var(--brand-100);
-    }
-    .history-btn {
-      width: 24px; height: 24px; border-radius: 6px;
-      display: grid; place-items: center; color: var(--brand-600);
-    }
-    .history-btn:hover { background: var(--brand-50); }
-
     .hint {
       margin-top: 12px; font-size: 12px; color: var(--gray-500);
-      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
     }
     .legend {
-      display: inline-flex; align-items: center; gap: 6px;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid var(--gray-200);
+      border-radius: 999px;
+      background: white;
+      color: var(--gray-600);
+    }
+    .legend-swatch {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--brand-600);
+      box-shadow: 0 0 0 3px var(--brand-50);
+      flex-shrink: 0;
+    }
+    .legend-sample {
+      color: var(--brand-700);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
     }
 
     /* Modal */
@@ -501,9 +504,12 @@
           </div>
 
           <div class="hint">
-            <span class="legend"><span class="reg-tag">R</span> Regularized attendance</span>
-            <span>· Click pencil beside Clock in / Clock out to edit</span>
-            <span>· Click <strong>R</strong> to open history in the same popup</span>
+            <span class="legend">
+              <span class="legend-swatch" aria-hidden="true"></span>
+              <span><span class="legend-sample">05:50</span> = Regularized attendance</span>
+            </span>
+            <span>· Normal punches stay in gray/black</span>
+            <span>· Use the pencil to edit and view History</span>
           </div>
         </section>
       </div>
@@ -719,10 +725,6 @@
       return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
     }
 
-    function historySvg() {
-      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>`;
-    }
-
     function renderTimeCell(emp, field) {
       const value = field === "in" ? emp.clockIn : emp.clockOut;
       const isEmpty = !value;
@@ -733,8 +735,6 @@
       return `
         <div class="time-cell">
           <span class="${classes.join(" ")}">${formatDisplayTime(value)}</span>
-          ${emp.regularized && field === "in" ? `<button class="reg-tag" type="button" data-history="${emp.id}" title="View regularization history">R</button>` : ""}
-          ${emp.regularized && field === "in" ? `<button class="history-btn" type="button" data-history="${emp.id}" title="History">${historySvg()}</button>` : ""}
           <button class="edit-btn ${isEmpty ? "visible" : ""}" type="button" data-edit="${emp.id}" data-focus="${field}" title="${isEmpty ? "Add attendance" : "Regularize"}">
             ${pencilSvg()}
           </button>
@@ -956,10 +956,7 @@
       const editBtn = e.target.closest("[data-edit]");
       if (editBtn) {
         openEdit(editBtn.dataset.edit, editBtn.dataset.focus, "edit");
-        return;
       }
-      const histBtn = e.target.closest("[data-history]");
-      if (histBtn) openHistory(histBtn.dataset.history);
     });
 
     document.getElementById("saveBtn").addEventListener("click", saveEdit);
