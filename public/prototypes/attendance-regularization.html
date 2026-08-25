@@ -185,18 +185,24 @@
     }
 
     .edit-btn {
-      width: 26px; height: 26px; border-radius: 7px;
-      display: grid; place-items: center;
-      color: var(--gray-400);
-      opacity: 0.55;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--gray-500);
+      border: 1px solid var(--gray-200);
+      background: white;
       transition: 0.15s ease;
-    }
-    tr:hover .edit-btn, .edit-btn:focus-visible, .edit-btn.visible {
-      opacity: 1;
     }
     .edit-btn:hover {
       background: var(--brand-50);
+      border-color: var(--brand-100);
       color: var(--brand-700);
+    }
+    .actions-cell {
+      text-align: center;
+      width: 72px;
     }
 
     .hint {
@@ -398,7 +404,6 @@
       .page-head h1 { font-size: 24px; }
       .search { margin-left: 0; max-width: none; width: 100%; }
       .grid-2 { grid-template-columns: 1fr; }
-      .edit-btn { opacity: 1; }
     }
   </style>
 </head>
@@ -457,7 +462,7 @@
 
         <section class="card">
           <h2>Employee attendance</h2>
-          <p class="sub">Keep track of employee attendance. Click the pencil to regularize check-in / check-out.</p>
+          <p class="sub">Keep track of employee attendance. Use the Action pencil on each row to regularize check-in / check-out.</p>
 
           <div class="toolbar">
             <label class="field">
@@ -498,6 +503,7 @@
                   <th>Clock out</th>
                   <th>Overtime</th>
                   <th>Total hours</th>
+                  <th class="actions-cell">Action</th>
                 </tr>
               </thead>
               <tbody id="attendanceBody"></tbody>
@@ -510,7 +516,7 @@
               <span><span class="legend-sample">05:50</span> = Regularized attendance</span>
             </span>
             <span>· Normal punches stay in gray/black</span>
-            <span>· Use the pencil to edit; open History under Reason for past changes</span>
+            <span>· Use the Action pencil on a row to edit; open History under Reason for past changes</span>
           </div>
         </section>
       </div>
@@ -729,9 +735,6 @@
       return `
         <div class="time-cell">
           <span class="${classes.join(" ")}">${formatDisplayTime(value)}</span>
-          <button class="edit-btn ${isEmpty ? "visible" : ""}" type="button" data-edit="${emp.id}" data-focus="${field}" title="${isEmpty ? "Add attendance" : "Regularize"}">
-            ${pencilSvg()}
-          </button>
         </div>
       `;
     }
@@ -752,6 +755,7 @@
         .map((e) => {
           const total = calcTotal(e.clockIn, e.clockOut);
           const overtime = calcOvertime(e.clockIn, e.clockOut);
+          const hasAny = e.clockIn || e.clockOut || e.shift;
           return `
             <tr data-id="${e.id}">
               <td><input class="check" type="checkbox" aria-label="Select ${e.name}" /></td>
@@ -768,6 +772,11 @@
               <td>${renderTimeCell(e, "out")}</td>
               <td>${overtime}</td>
               <td>${total}</td>
+              <td class="actions-cell">
+                <button class="edit-btn" type="button" data-edit="${e.id}" title="${hasAny ? "Regularize attendance" : "Add attendance"}" aria-label="Edit ${e.name}">
+                  ${pencilSvg()}
+                </button>
+              </td>
             </tr>
           `;
         })
@@ -942,9 +951,7 @@
 
     bodyEl.addEventListener("click", (e) => {
       const editBtn = e.target.closest("[data-edit]");
-      if (editBtn) {
-        openEdit(editBtn.dataset.edit, editBtn.dataset.focus);
-      }
+      if (editBtn) openEdit(editBtn.dataset.edit);
     });
 
     document.getElementById("saveBtn").addEventListener("click", saveEdit);
