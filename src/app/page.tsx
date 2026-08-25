@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LifeBuoy, Headphones, MessageCircle } from "lucide-react";
+import { LifeBuoy, Headphones, MessageCircle, CalendarCheck2 } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -26,6 +26,22 @@ export default function HomePage() {
         </p>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Link
+            href="/attendance"
+            className="group rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
+          >
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+              <CalendarCheck2 className="h-5 w-5" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Attendance Report</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Manager prototype: add or regularize check in, check out, and shift.
+            </p>
+            <span className="mt-4 inline-block text-sm font-semibold text-brand-700 group-hover:underline">
+              Open attendance →
+            </span>
+          </Link>
+
           <Link
             href="/support"
             className="group rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"

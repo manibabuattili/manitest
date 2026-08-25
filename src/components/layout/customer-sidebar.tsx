@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   Search,
   Building2,
@@ -20,13 +21,16 @@ import {
   Users,
   Shield,
   ChevronDown,
+  FileBarChart,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
+const attendanceChildren = [{ label: "Attendance Report", href: "/attendance", icon: FileBarChart }];
+
 const customerNav = [
   { label: "Organization", icon: Building2 },
-  { label: "Attendance", icon: CalendarCheck2, expandable: true },
+  { label: "Attendance", icon: CalendarCheck2, expandable: true, children: attendanceChildren },
   { label: "WhatsApp", icon: MessageCircle, expandable: true },
   { label: "Shift", icon: Clock3 },
   { label: "Holiday", icon: Palmtree },
@@ -45,6 +49,8 @@ const customerNav = [
 
 export function CustomerSidebar() {
   const pathname = usePathname();
+  const attendanceActive = pathname.startsWith("/attendance");
+  const [attendanceOpen, setAttendanceOpen] = useState(attendanceActive);
 
   return (
     <aside className="flex h-screen w-[260px] shrink-0 flex-col border-r border-gray-200 bg-white">
@@ -72,21 +78,59 @@ export function CustomerSidebar() {
           {customerNav.map((item) => {
             const active = item.href ? pathname.startsWith(item.href) : false;
             const Icon = item.icon;
+            const expanded = item.label === "Attendance" && attendanceOpen;
             const content = (
               <span
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50",
-                  active && "bg-gray-100 text-gray-900"
+                  active && "bg-gray-100 text-gray-900",
+                  item.label === "Attendance" && attendanceActive && "text-gray-900"
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="flex-1">{item.label}</span>
-                {item.expandable && <ChevronDown className="h-4 w-4 text-gray-400" />}
+                {item.expandable && (
+                  <ChevronDown className={cn("h-4 w-4 text-gray-400 transition", expanded && "rotate-180")} />
+                )}
               </span>
             );
             return (
               <li key={item.label}>
-                {item.href ? <Link href={item.href}>{content}</Link> : content}
+                {item.href ? (
+                  <Link href={item.href}>{content}</Link>
+                ) : item.children ? (
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={() => setAttendanceOpen((open) => !open)}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  content
+                )}
+                {item.children && expanded ? (
+                  <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-gray-100 pl-2">
+                    {item.children.map((child) => {
+                      const ChildIcon = child.icon;
+                      const childActive = pathname.startsWith(child.href);
+                      return (
+                        <li key={child.href}>
+                          <Link
+                            href={child.href}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50",
+                              childActive && "bg-sky-50 font-medium text-sky-800"
+                            )}
+                          >
+                            <ChildIcon className="h-4 w-4 shrink-0" />
+                            {child.label}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
               </li>
             );
           })}
