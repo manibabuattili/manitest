@@ -244,9 +244,57 @@
     }
     .close-x:hover { background: var(--gray-100); }
     .modal-body { padding: 16px 20px 8px; display: grid; gap: 14px; }
+    .modal-body.hidden { display: none; }
     .modal-foot {
       padding: 12px 20px 18px; display: flex; gap: 10px; justify-content: flex-end;
       border-top: 1px solid var(--gray-100); margin-top: 8px;
+    }
+    .modal-foot.hidden { display: none; }
+
+    .modal-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--gray-100);
+      background: white;
+    }
+    .modal-tab {
+      position: relative;
+      padding: 11px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-500);
+      border-radius: 8px 8px 0 0;
+    }
+    .modal-tab:hover { color: var(--gray-700); background: var(--gray-50); }
+    .modal-tab.active {
+      color: var(--brand-700);
+    }
+    .modal-tab.active::after {
+      content: "";
+      position: absolute;
+      left: 10px; right: 10px; bottom: -1px;
+      height: 2px;
+      background: var(--brand-600);
+      border-radius: 2px 2px 0 0;
+    }
+    .tab-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      margin-left: 6px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--gray-100);
+      color: var(--gray-600);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .modal-tab.active .tab-count {
+      background: var(--brand-50);
+      color: var(--brand-700);
     }
 
     .label { display: block; font-size: 13px; font-weight: 500; color: var(--gray-700); margin-bottom: 6px; }
@@ -302,13 +350,30 @@
       border: 1px solid var(--gray-200); border-radius: 12px; padding: 12px;
       background: var(--gray-25);
     }
-    .history-item h4 { font-size: 13px; margin-bottom: 6px; }
-    .history-meta { font-size: 12px; color: var(--gray-500); margin-bottom: 8px; }
+    .history-item h4 { font-size: 13px; margin-bottom: 4px; color: var(--gray-900); }
+    .history-meta { font-size: 12px; color: var(--gray-500); margin-bottom: 10px; line-height: 1.45; }
     .history-change {
-      font-size: 13px; color: var(--gray-700); display: grid; gap: 4px;
+      font-size: 13px; color: var(--gray-700); display: grid; gap: 6px;
     }
+    .history-change .row {
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+    .history-change .row span:first-child { color: var(--gray-500); }
+    .time-diff {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .time-diff .from { color: var(--gray-500); text-decoration: line-through; }
+    .time-diff .to { color: var(--brand-700); font-weight: 600; }
+    .time-diff .arrow { color: var(--gray-400); font-size: 12px; }
     .empty-history {
-      text-align: center; color: var(--gray-500); font-size: 13px; padding: 24px 8px;
+      text-align: center; color: var(--gray-500); font-size: 13px; padding: 28px 8px;
+      border: 1px dashed var(--gray-200); border-radius: 12px; background: var(--gray-25);
     }
 
     .mobile-toggle {
@@ -438,7 +503,7 @@
           <div class="hint">
             <span class="legend"><span class="reg-tag">R</span> Regularized attendance</span>
             <span>· Click pencil beside Clock in / Clock out to edit</span>
-            <span>· Click <strong>R</strong> or history icon to view past changes</span>
+            <span>· Click <strong>R</strong> to open history in the same popup</span>
           </div>
         </section>
       </div>
@@ -455,7 +520,18 @@
         </div>
         <button class="close-x" type="button" data-close="edit" aria-label="Close">✕</button>
       </div>
-      <div class="modal-body">
+
+      <div class="modal-tabs" role="tablist">
+        <button class="modal-tab active" type="button" role="tab" id="tabEdit" data-tab="edit" aria-selected="true">
+          Edit
+        </button>
+        <button class="modal-tab" type="button" role="tab" id="tabHistory" data-tab="history" aria-selected="false">
+          History
+          <span class="tab-count" id="historyCount">0</span>
+        </button>
+      </div>
+
+      <div class="modal-body" id="editPanel" role="tabpanel">
         <div class="current-box" id="currentBox"></div>
 
         <div>
@@ -475,7 +551,7 @@
         </div>
 
         <p class="note" id="editHelp">
-          You can update only check-in, only check-out, or both. Leave a field empty only when marking missing attendance for the first time if that punch is still unknown.
+          You can update only check-in, only check-out, or both.
         </p>
 
         <div>
@@ -483,28 +559,18 @@
           <input class="control" id="editNote" type="text" maxlength="120" placeholder="e.g. Missed punch due to device issue" />
         </div>
       </div>
-      <div class="modal-foot">
+
+      <div class="modal-body hidden" id="historyPanel" role="tabpanel">
+        <div class="history-list" id="historyList"></div>
+      </div>
+
+      <div class="modal-foot" id="editFooter">
         <button class="btn btn-secondary" type="button" data-close="edit">Cancel</button>
         <button class="btn btn-primary" type="button" id="saveBtn">Save</button>
       </div>
-    </div>
-  </div>
-
-  <!-- History modal -->
-  <div class="overlay" id="historyOverlay" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
-    <div class="modal">
-      <div class="modal-head">
-        <div>
-          <h3 id="historyTitle">Regularization history</h3>
-          <p id="historySubtitle">Past edits for this attendance day</p>
-        </div>
-        <button class="close-x" type="button" data-close="history" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="history-list" id="historyList"></div>
-      </div>
-      <div class="modal-foot">
-        <button class="btn btn-secondary" type="button" data-close="history">Close</button>
+      <div class="modal-foot hidden" id="historyFooter">
+        <button class="btn btn-secondary" type="button" data-close="edit">Close</button>
+        <button class="btn btn-primary" type="button" id="backToEditBtn">Back to Edit</button>
       </div>
     </div>
   </div>
@@ -612,12 +678,7 @@
     const searchEl = document.getElementById("search");
     const shiftFilterEl = document.getElementById("shiftFilter");
     const editOverlay = document.getElementById("editOverlay");
-    const historyOverlay = document.getElementById("historyOverlay");
     const toastEl = document.getElementById("toast");
-
-    function initialsColor(i) {
-      return i;
-    }
 
     function formatDisplayTime(t) {
       return t || "—";
@@ -641,7 +702,7 @@
       const b = toMinutes(clockOut);
       if (a == null || b == null) return "—";
       let diff = b - a;
-      if (diff < 0) diff += 24 * 60; // overnight
+      if (diff < 0) diff += 24 * 60;
       return formatDuration(diff);
     }
 
@@ -719,7 +780,56 @@
         .join("");
     }
 
-    function openEdit(id, focus) {
+    function setModalTab(tab) {
+      const isEdit = tab === "edit";
+      document.getElementById("tabEdit").classList.toggle("active", isEdit);
+      document.getElementById("tabHistory").classList.toggle("active", !isEdit);
+      document.getElementById("tabEdit").setAttribute("aria-selected", String(isEdit));
+      document.getElementById("tabHistory").setAttribute("aria-selected", String(!isEdit));
+      document.getElementById("editPanel").classList.toggle("hidden", !isEdit);
+      document.getElementById("historyPanel").classList.toggle("hidden", isEdit);
+      document.getElementById("editFooter").classList.toggle("hidden", !isEdit);
+      document.getElementById("historyFooter").classList.toggle("hidden", isEdit);
+    }
+
+    function timeDiffHtml(from, to) {
+      const a = formatDisplayTime(from);
+      const b = formatDisplayTime(to);
+      if (a === b) return `<span class="to">${b}</span> <span style="color:var(--gray-400)">(unchanged)</span>`;
+      return `<span class="time-diff"><span class="from">${a}</span><span class="arrow">→</span><span class="to">${b}</span></span>`;
+    }
+
+    function renderHistory(emp) {
+      document.getElementById("historyCount").textContent = String(emp.history.length);
+      const list = document.getElementById("historyList");
+      if (!emp.history.length) {
+        list.innerHTML = `<div class="empty-history">No regularization activity yet for this day.</div>`;
+        return;
+      }
+      list.innerHTML = [...emp.history]
+        .reverse()
+        .map((h, idx) => {
+          const n = emp.history.length - idx;
+          return `
+            <div class="history-item">
+              <h4>Regularization #${n}</h4>
+              <div class="history-meta">
+                <div><strong>When:</strong> ${h.at}</div>
+                <div><strong>Who:</strong> ${h.by}</div>
+                ${h.note ? `<div><strong>Note:</strong> ${h.note}</div>` : ""}
+              </div>
+              <div class="history-change">
+                <div class="row"><span>Shift</span><div>${timeDiffHtml(h.before.shift || "—", h.after.shift || "—")}</div></div>
+                <div class="row"><span>Check in</span><div>${timeDiffHtml(h.before.clockIn, h.after.clockIn)}</div></div>
+                <div class="row"><span>Check out</span><div>${timeDiffHtml(h.before.clockOut, h.after.clockOut)}</div></div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function openEdit(id, focus, startTab = "edit") {
       activeId = id;
       focusField = focus || null;
       const emp = employees.find((e) => e.id === id);
@@ -753,43 +863,21 @@
         ? "Change only what you need — check-in, check-out, shift, or any combination."
         : "No punch found for this day. Add shift with check-in and/or check-out.";
 
+      renderHistory(emp);
+      setModalTab(startTab);
       editOverlay.classList.add("open");
-      requestAnimationFrame(() => {
-        if (focusField === "out") document.getElementById("editOut").focus();
-        else if (focusField === "in") document.getElementById("editIn").focus();
-        else if (!hasAny) shiftSelect.focus();
-      });
+
+      if (startTab === "edit") {
+        requestAnimationFrame(() => {
+          if (focusField === "out") document.getElementById("editOut").focus();
+          else if (focusField === "in") document.getElementById("editIn").focus();
+          else if (!hasAny) shiftSelect.focus();
+        });
+      }
     }
 
     function openHistory(id) {
-      const emp = employees.find((e) => e.id === id);
-      if (!emp) return;
-      document.getElementById("historySubtitle").textContent =
-        `${emp.name} · ${emp.empId} · ${document.getElementById("reportDate").value}`;
-
-      const list = document.getElementById("historyList");
-      if (!emp.history.length) {
-        list.innerHTML = `<div class="empty-history">No regularization history yet.</div>`;
-      } else {
-        list.innerHTML = [...emp.history]
-          .reverse()
-          .map(
-            (h, idx) => `
-            <div class="history-item">
-              <h4>Edit ${emp.history.length - idx}</h4>
-              <div class="history-meta">${h.at} · by ${h.by}</div>
-              <div class="history-change">
-                <div><strong>Shift:</strong> ${h.before.shift || "—"} → ${h.after.shift || "—"}</div>
-                <div><strong>Check in:</strong> ${formatDisplayTime(h.before.clockIn)} → ${formatDisplayTime(h.after.clockIn)}</div>
-                <div><strong>Check out:</strong> ${formatDisplayTime(h.before.clockOut)} → ${formatDisplayTime(h.after.clockOut)}</div>
-                ${h.note ? `<div><strong>Note:</strong> ${h.note}</div>` : ""}
-              </div>
-            </div>
-          `
-          )
-          .join("");
-      }
-      historyOverlay.classList.add("open");
+      openEdit(id, null, "history");
     }
 
     function showToast(msg) {
@@ -818,10 +906,6 @@
         showToast("Please select a shift when adding punch times.");
         document.getElementById("editShift").focus();
         return;
-      }
-
-      if (nextIn && nextOut) {
-        // allow overnight; no hard block
       }
 
       const before = {
@@ -862,15 +946,16 @@
       emp.regularized = true;
       emp.overtime = calcOvertime(emp.clockIn, emp.clockOut);
 
-      editOverlay.classList.remove("open");
+      renderHistory(emp);
+      setModalTab("history");
       render();
-      showToast(hadNothing ? "Attendance added." : "Attendance regularized.");
+      showToast(hadNothing ? "Attendance added. History updated." : "Attendance regularized. History updated.");
     }
 
     bodyEl.addEventListener("click", (e) => {
       const editBtn = e.target.closest("[data-edit]");
       if (editBtn) {
-        openEdit(editBtn.dataset.edit, editBtn.dataset.focus);
+        openEdit(editBtn.dataset.edit, editBtn.dataset.focus, "edit");
         return;
       }
       const histBtn = e.target.closest("[data-history]");
@@ -878,28 +963,24 @@
     });
 
     document.getElementById("saveBtn").addEventListener("click", saveEdit);
+    document.getElementById("backToEditBtn").addEventListener("click", () => setModalTab("edit"));
+    document.getElementById("tabEdit").addEventListener("click", () => setModalTab("edit"));
+    document.getElementById("tabHistory").addEventListener("click", () => setModalTab("history"));
     searchEl.addEventListener("input", render);
     shiftFilterEl.addEventListener("change", render);
 
     document.querySelectorAll("[data-close]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const which = btn.getAttribute("data-close");
-        if (which === "edit") editOverlay.classList.remove("open");
-        if (which === "history") historyOverlay.classList.remove("open");
+        editOverlay.classList.remove("open");
       });
     });
 
-    [editOverlay, historyOverlay].forEach((overlay) => {
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) overlay.classList.remove("open");
-      });
+    editOverlay.addEventListener("click", (e) => {
+      if (e.target === editOverlay) editOverlay.classList.remove("open");
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        editOverlay.classList.remove("open");
-        historyOverlay.classList.remove("open");
-      }
+      if (e.key === "Escape") editOverlay.classList.remove("open");
     });
 
     document.getElementById("menuBtn").addEventListener("click", () => {
