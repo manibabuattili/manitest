@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bluconn · Attendance Regularization Prototype</title>
+  <style>
+    :root {
+      --brand-50: #ecfdf3;
+      --brand-100: #d1fadf;
+      --brand-500: #12b76a;
+      --brand-600: #039855;
+      --brand-700: #027a48;
+      --gray-25: #fcfcfd;
+      --gray-50: #f9fafb;
+      --gray-100: #f2f4f7;
+      --gray-200: #eaecf0;
+      --gray-300: #d0d5dd;
+      --gray-400: #98a2b3;
+      --gray-500: #667085;
+      --gray-600: #475467;
+      --gray-700: #344054;
+      --gray-900: #101828;
+      --warn-bg: #fff6ed;
+      --warn-border: #f9dbaf;
+      --warn-text: #b54708;
+      --rose-50: #fef3f2;
+      --rose-600: #d92d20;
+      --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+      --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+      --shadow-lg: 0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);
+      --radius: 12px;
+      --sidebar-w: 248px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--gray-900);
+      background: var(--gray-50);
+      min-height: 100vh;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; border: none; background: none; }
+    a { color: inherit; text-decoration: none; }
+
+    .app { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: #f5f6f8;
+      border-right: 1px solid var(--gray-200);
+      padding: 18px 12px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px 18px;
+      font-weight: 700; font-size: 18px; color: var(--gray-900);
+    }
+    .logo-mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, #32d583, #027a48);
+      display: grid; place-items: center; color: white; font-size: 14px;
+    }
+    .nav-group { margin-top: 4px; }
+    .nav-parent {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-radius: 10px;
+      color: var(--gray-700); font-size: 14px; font-weight: 500;
+    }
+    .nav-parent:hover { background: #eceef2; }
+    .nav-children { padding: 2px 0 8px 8px; display: grid; gap: 2px; }
+    .nav-item {
+      display: block; padding: 9px 12px; border-radius: 10px;
+      font-size: 13.5px; color: var(--gray-600);
+    }
+    .nav-item:hover { background: #eceef2; color: var(--gray-800); }
+    .nav-item.active {
+      background: var(--brand-50);
+      color: var(--brand-700);
+      font-weight: 600;
+    }
+
+    /* Main */
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .impersonation {
+      background: #c2410c;
+      color: #fff7ed;
+      padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      font-size: 13px;
+    }
+    .impersonation button {
+      background: rgba(255,255,255,0.15);
+      color: white; border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600;
+    }
+    .content { padding: 22px 28px 40px; }
+
+    .page-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .page-head h1 { font-size: 28px; letter-spacing: -0.02em; }
+    .icon-btn {
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid var(--gray-200); background: white;
+      display: grid; place-items: center; color: var(--gray-600);
+      box-shadow: var(--shadow-sm);
+    }
+    .icon-btn:hover { background: var(--gray-50); }
+
+    .card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 16px;
+      box-shadow: var(--shadow-sm);
+      padding: 20px;
+    }
+    .card h2 { font-size: 18px; margin-bottom: 4px; }
+    .card .sub { color: var(--gray-500); font-size: 13.5px; margin-bottom: 16px; }
+
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    .field {
+      height: 40px; border: 1px solid var(--gray-300); border-radius: 10px;
+      background: white; padding: 0 12px; color: var(--gray-700); font-size: 14px;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .field select, .field input {
+      border: none; outline: none; background: transparent; color: inherit; min-width: 0;
+    }
+    .search {
+      margin-left: auto; min-width: 220px; flex: 1; max-width: 280px;
+    }
+    .search input { width: 100%; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--gray-200); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th {
+      text-align: left; font-size: 12px; font-weight: 500; color: var(--gray-500);
+      background: var(--gray-50); padding: 12px 14px; border-bottom: 1px solid var(--gray-200);
+      white-space: nowrap;
+    }
+    td {
+      padding: 14px; border-bottom: 1px solid var(--gray-100);
+      font-size: 14px; color: var(--gray-700); vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--gray-25); }
+    .check { width: 18px; height: 18px; accent-color: var(--brand-600); }
+
+    .employee {
+      display: flex; align-items: center; gap: 12px; min-width: 180px;
+    }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--brand-50); color: var(--brand-700);
+      display: grid; place-items: center; font-size: 12px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .emp-name { font-weight: 600; color: var(--gray-900); line-height: 1.2; }
+    .emp-id { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+    .time-cell {
+      display: inline-flex; align-items: center; gap: 6px;
+      white-space: nowrap;
+    }
+    .time-value {
+      font-variant-numeric: tabular-nums;
+      min-width: 42px;
+    }
+    .time-value.empty { color: var(--gray-400); }
+    .time-value.regularized {
+      color: var(--brand-700);
+      font-weight: 600;
+    }
+
+    .edit-btn {
+      width: 26px; height: 26px; border-radius: 7px;
+      display: grid; place-items: center;
+      color: var(--gray-400);
+      opacity: 0.55;
+      transition: 0.15s ease;
+    }
+    tr:hover .edit-btn, .edit-btn:focus-visible, .edit-btn.visible {
+      opacity: 1;
+    }
+    .edit-btn:hover {
+      background: var(--brand-50);
+      color: var(--brand-700);
+    }
+
+    .reg-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 20px; padding: 0 7px; border-radius: 999px;
+      background: var(--brand-50); color: var(--brand-700);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+      border: 1px solid var(--brand-100);
+    }
+    .history-btn {
+      width: 24px; height: 24px; border-radius: 6px;
+      display: grid; place-items: center; color: var(--brand-600);
+    }
+    .history-btn:hover { background: var(--brand-50); }
+
+    .hint {
+      margin-top: 12px; font-size: 12px; color: var(--gray-500);
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    }
+    .legend {
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+
+    /* Modal */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(16, 24, 40, 0.45);
+      display: none; align-items: center; justify-content: center;
+      padding: 16px; z-index: 50;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      width: 100%; max-width: 460px; background: white;
+      border-radius: 16px; box-shadow: var(--shadow-lg);
+      max-height: min(92vh, 720px); overflow: auto;
+    }
+    .modal-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--gray-100);
+    }
+    .modal-head h3 { font-size: 17px; }
+    .modal-head p { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+    .close-x {
+      width: 32px; height: 32px; border-radius: 8px; color: var(--gray-500);
+      display: grid; place-items: center;
+    }
+    .close-x:hover { background: var(--gray-100); }
+    .modal-body { padding: 16px 20px 8px; display: grid; gap: 14px; }
+    .modal-foot {
+      padding: 12px 20px 18px; display: flex; gap: 10px; justify-content: flex-end;
+      border-top: 1px solid var(--gray-100); margin-top: 8px;
+    }
+
+    .label { display: block; font-size: 13px; font-weight: 500; color: var(--gray-700); margin-bottom: 6px; }
+    .control {
+      width: 100%; height: 42px; border: 1px solid var(--gray-300);
+      border-radius: 10px; padding: 0 12px; background: white; color: var(--gray-900);
+    }
+    .control:focus { outline: 2px solid rgba(3,152,85,0.2); border-color: var(--brand-500); }
+    .control:disabled { background: var(--gray-50); color: var(--gray-500); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .current-box {
+      background: var(--gray-50); border: 1px solid var(--gray-200);
+      border-radius: 12px; padding: 12px; display: grid; gap: 8px;
+    }
+    .current-row {
+      display: flex; justify-content: space-between; gap: 8px;
+      font-size: 13px;
+    }
+    .current-row span:first-child { color: var(--gray-500); }
+    .current-row strong { color: var(--gray-800); font-weight: 600; }
+    .note {
+      font-size: 12px; color: var(--gray-500); line-height: 1.4;
+    }
+    .btn {
+      height: 40px; padding: 0 16px; border-radius: 10px;
+      font-size: 14px; font-weight: 600;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-secondary {
+      border: 1px solid var(--gray-300); background: white; color: var(--gray-700);
+    }
+    .btn-secondary:hover { background: var(--gray-50); }
+    .btn-primary {
+      background: var(--brand-600); color: white;
+    }
+    .btn-primary:hover { background: var(--brand-700); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .toast {
+      position: fixed; right: 20px; bottom: 20px; z-index: 60;
+      background: var(--gray-900); color: white; padding: 12px 16px;
+      border-radius: 12px; font-size: 13px; box-shadow: var(--shadow-md);
+      display: none; max-width: 320px;
+    }
+    .toast.show { display: block; animation: slideUp .2s ease; }
+    @keyframes slideUp {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: none; opacity: 1; }
+    }
+
+    .history-list { display: grid; gap: 10px; }
+    .history-item {
+      border: 1px solid var(--gray-200); border-radius: 12px; padding: 12px;
+      background: var(--gray-25);
+    }
+    .history-item h4 { font-size: 13px; margin-bottom: 6px; }
+    .history-meta { font-size: 12px; color: var(--gray-500); margin-bottom: 8px; }
+    .history-change {
+      font-size: 13px; color: var(--gray-700); display: grid; gap: 4px;
+    }
+    .empty-history {
+      text-align: center; color: var(--gray-500); font-size: 13px; padding: 24px 8px;
+    }
+
+    .mobile-toggle {
+      display: none;
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid var(--gray-200); background: white;
+      align-items: center; justify-content: center;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed; inset: 0 auto 0 0; z-index: 40;
+        transform: translateX(-105%); transition: transform .2s ease;
+      }
+      .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
+      .mobile-toggle { display: inline-flex; }
+      .content { padding: 16px; }
+      .page-head h1 { font-size: 24px; }
+      .search { margin-left: 0; max-width: none; width: 100%; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .edit-btn { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <div class="logo-mark">✦</div>
+        Bluconn
+      </div>
+      <div class="nav-group">
+        <button class="nav-parent" type="button">Organization <span>▾</span></button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-parent" type="button">Communication <span>▾</span></button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-parent" type="button" style="background:#eceef2;">HR <span>▾</span></button>
+        <div class="nav-children">
+          <a class="nav-item active" href="#">Attendance Report</a>
+          <a class="nav-item" href="#">Video Attendance</a>
+          <a class="nav-item" href="#">Employee Registration</a>
+          <a class="nav-item" href="#">Shift</a>
+          <a class="nav-item" href="#">Leave</a>
+          <a class="nav-item" href="#">Holiday</a>
+          <a class="nav-item" href="#">Over Time</a>
+          <a class="nav-item" href="#">Geofence</a>
+          <a class="nav-item" href="#">Groups</a>
+          <a class="nav-item" href="#">Role Management</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="nav-parent" type="button">Work Management <span>▾</span></button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-parent" type="button">Project Management <span>▾</span></button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="impersonation">
+        <span>Logged in as impersonated user: manibabu.a@bluconn.ai — All actions are monitored and logged.</span>
+        <button type="button">End Session</button>
+      </div>
+
+      <div class="content">
+        <div class="page-head">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="mobile-toggle" type="button" id="menuBtn" aria-label="Open menu">☰</button>
+            <h1>Attendance</h1>
+          </div>
+          <button class="icon-btn" type="button" title="Export" aria-label="Export">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          </button>
+        </div>
+
+        <section class="card">
+          <h2>Employee attendance</h2>
+          <p class="sub">Keep track of employee attendance. Click the pencil to regularize check-in / check-out.</p>
+
+          <div class="toolbar">
+            <label class="field">
+              <select id="frequency" aria-label="Frequency">
+                <option>Daily</option>
+                <option>Weekly</option>
+                <option>Monthly</option>
+              </select>
+            </label>
+            <label class="field">
+              <input type="date" id="reportDate" value="2024-07-01" aria-label="Date" />
+            </label>
+            <label class="field">
+              <select id="shiftFilter" aria-label="Shift filter">
+                <option value="">Select shift</option>
+                <option>Night (6pm-6am)</option>
+                <option>Day (6am-6pm)</option>
+                <option>09:30 AM - 06:15 PM</option>
+                <option>08:00 PM - 08:00 AM</option>
+                <option>08:00 AM - 08:00 PM</option>
+                <option>06:00 PM - 06:00 AM</option>
+                <option>06:00 AM - 06:00 PM</option>
+              </select>
+            </label>
+            <label class="field search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+              <input id="search" type="search" placeholder="Search employee..." />
+            </label>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:40px;"><input class="check" type="checkbox" aria-label="Select all" /></th>
+                  <th>Employee</th>
+                  <th>Clock in</th>
+                  <th>Clock out</th>
+                  <th>Overtime</th>
+                  <th>Total hours</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceBody"></tbody>
+            </table>
+          </div>
+
+          <div class="hint">
+            <span class="legend"><span class="reg-tag">R</span> Regularized attendance</span>
+            <span>· Click pencil beside Clock in / Clock out to edit</span>
+            <span>· Click <strong>R</strong> or history icon to view past changes</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regularize modal -->
+  <div class="overlay" id="editOverlay" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h3 id="editTitle">Regularize attendance</h3>
+          <p id="editSubtitle">Update check-in, check-out, or shift</p>
+        </div>
+        <button class="close-x" type="button" data-close="edit" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="current-box" id="currentBox"></div>
+
+        <div>
+          <label class="label" for="editShift">Shift</label>
+          <select class="control" id="editShift"></select>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label class="label" for="editIn">Check in</label>
+            <input class="control" id="editIn" type="time" />
+          </div>
+          <div>
+            <label class="label" for="editOut">Check out</label>
+            <input class="control" id="editOut" type="time" />
+          </div>
+        </div>
+
+        <p class="note" id="editHelp">
+          You can update only check-in, only check-out, or both. Leave a field empty only when marking missing attendance for the first time if that punch is still unknown.
+        </p>
+
+        <div>
+          <label class="label" for="editNote">Note <span style="color:var(--gray-400);font-weight:400;">(optional)</span></label>
+          <input class="control" id="editNote" type="text" maxlength="120" placeholder="e.g. Missed punch due to device issue" />
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" type="button" data-close="edit">Cancel</button>
+        <button class="btn btn-primary" type="button" id="saveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History modal -->
+  <div class="overlay" id="historyOverlay" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h3 id="historyTitle">Regularization history</h3>
+          <p id="historySubtitle">Past edits for this attendance day</p>
+        </div>
+        <button class="close-x" type="button" data-close="history" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="history-list" id="historyList"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" type="button" data-close="history">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const SHIFTS = [
+      "Night (6pm-6am)",
+      "Day (6am-6pm)",
+      "09:30 AM - 06:15 PM",
+      "08:00 PM - 08:00 AM",
+      "08:00 AM - 08:00 PM",
+      "06:00 PM - 06:00 AM",
+      "06:00 AM - 06:00 PM",
+    ];
+
+    const employees = [
+      {
+        id: "e1",
+        name: "Olivia Clark",
+        empId: "EMP049",
+        initials: "OC",
+        shift: "06:00 AM - 06:00 PM",
+        clockIn: "05:50",
+        clockOut: "17:56",
+        overtime: "-",
+        regularized: false,
+        history: [],
+      },
+      {
+        id: "e2",
+        name: "Oscar Romano",
+        empId: "EMP026",
+        initials: "OR",
+        shift: "06:00 AM - 06:00 PM",
+        clockIn: "05:50",
+        clockOut: "20:22",
+        overtime: "02:22",
+        regularized: true,
+        history: [
+          {
+            at: "2024-07-01 21:10",
+            by: "manibabu.a@bluconn.ai",
+            before: { clockIn: "05:50", clockOut: "18:05", shift: "06:00 AM - 06:00 PM" },
+            after: { clockIn: "05:50", clockOut: "20:22", shift: "06:00 AM - 06:00 PM" },
+            note: "Forgot to punch out",
+          },
+        ],
+      },
+      {
+        id: "e3",
+        name: "Arthur Jackson",
+        empId: "EMP111",
+        initials: "AJ",
+        shift: "06:00 AM - 06:00 PM",
+        clockIn: "05:50",
+        clockOut: "19:29",
+        overtime: "01:29",
+        regularized: false,
+        history: [],
+      },
+      {
+        id: "e4",
+        name: "Evie Carter",
+        empId: "EMP064",
+        initials: "EC",
+        shift: "06:00 AM - 06:00 PM",
+        clockIn: "05:51",
+        clockOut: "20:08",
+        overtime: "02:08",
+        regularized: false,
+        history: [],
+      },
+      {
+        id: "e5",
+        name: "Noah Patel",
+        empId: "EMP088",
+        initials: "NP",
+        shift: "",
+        clockIn: "",
+        clockOut: "",
+        overtime: "-",
+        regularized: false,
+        history: [],
+      },
+      {
+        id: "e6",
+        name: "Mia Fernandes",
+        empId: "EMP073",
+        initials: "MF",
+        shift: "09:30 AM - 06:15 PM",
+        clockIn: "09:42",
+        clockOut: "",
+        overtime: "-",
+        regularized: false,
+        history: [],
+      },
+    ];
+
+    let activeId = null;
+    let focusField = null;
+
+    const bodyEl = document.getElementById("attendanceBody");
+    const searchEl = document.getElementById("search");
+    const shiftFilterEl = document.getElementById("shiftFilter");
+    const editOverlay = document.getElementById("editOverlay");
+    const historyOverlay = document.getElementById("historyOverlay");
+    const toastEl = document.getElementById("toast");
+
+    function initialsColor(i) {
+      return i;
+    }
+
+    function formatDisplayTime(t) {
+      return t || "—";
+    }
+
+    function toMinutes(t) {
+      if (!t) return null;
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function formatDuration(mins) {
+      if (mins == null || mins < 0) return "—";
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
+    function calcTotal(clockIn, clockOut) {
+      const a = toMinutes(clockIn);
+      const b = toMinutes(clockOut);
+      if (a == null || b == null) return "—";
+      let diff = b - a;
+      if (diff < 0) diff += 24 * 60; // overnight
+      return formatDuration(diff);
+    }
+
+    function calcOvertime(clockIn, clockOut) {
+      const total = calcTotal(clockIn, clockOut);
+      if (total === "—") return "-";
+      const [th, tm] = total.split(":").map(Number);
+      const totalMins = th * 60 + tm;
+      const ot = totalMins - 8 * 60;
+      return ot > 0 ? formatDuration(ot) : "-";
+    }
+
+    function pencilSvg() {
+      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+    }
+
+    function historySvg() {
+      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>`;
+    }
+
+    function renderTimeCell(emp, field) {
+      const value = field === "in" ? emp.clockIn : emp.clockOut;
+      const isEmpty = !value;
+      const classes = ["time-value"];
+      if (isEmpty) classes.push("empty");
+      if (emp.regularized && value) classes.push("regularized");
+
+      return `
+        <div class="time-cell">
+          <span class="${classes.join(" ")}">${formatDisplayTime(value)}</span>
+          ${emp.regularized && field === "in" ? `<button class="reg-tag" type="button" data-history="${emp.id}" title="View regularization history">R</button>` : ""}
+          ${emp.regularized && field === "in" ? `<button class="history-btn" type="button" data-history="${emp.id}" title="History">${historySvg()}</button>` : ""}
+          <button class="edit-btn ${isEmpty ? "visible" : ""}" type="button" data-edit="${emp.id}" data-focus="${field}" title="${isEmpty ? "Add attendance" : "Regularize"}">
+            ${pencilSvg()}
+          </button>
+        </div>
+      `;
+    }
+
+    function render() {
+      const q = searchEl.value.trim().toLowerCase();
+      const shiftQ = shiftFilterEl.value;
+      const rows = employees.filter((e) => {
+        const matchesSearch =
+          !q ||
+          e.name.toLowerCase().includes(q) ||
+          e.empId.toLowerCase().includes(q);
+        const matchesShift = !shiftQ || e.shift === shiftQ;
+        return matchesSearch && matchesShift;
+      });
+
+      bodyEl.innerHTML = rows
+        .map((e) => {
+          const total = calcTotal(e.clockIn, e.clockOut);
+          const overtime = calcOvertime(e.clockIn, e.clockOut);
+          return `
+            <tr data-id="${e.id}">
+              <td><input class="check" type="checkbox" aria-label="Select ${e.name}" /></td>
+              <td>
+                <div class="employee">
+                  <div class="avatar">${e.initials}</div>
+                  <div>
+                    <div class="emp-name">${e.name}</div>
+                    <div class="emp-id">${e.empId}</div>
+                  </div>
+                </div>
+              </td>
+              <td>${renderTimeCell(e, "in")}</td>
+              <td>${renderTimeCell(e, "out")}</td>
+              <td>${overtime}</td>
+              <td>${total}</td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    function openEdit(id, focus) {
+      activeId = id;
+      focusField = focus || null;
+      const emp = employees.find((e) => e.id === id);
+      if (!emp) return;
+
+      document.getElementById("editSubtitle").textContent =
+        `${emp.name} · ${emp.empId} · ${document.getElementById("reportDate").value}`;
+
+      const hasAny = emp.clockIn || emp.clockOut || emp.shift;
+      document.getElementById("editTitle").textContent = hasAny
+        ? "Regularize attendance"
+        : "Add attendance";
+
+      document.getElementById("currentBox").innerHTML = `
+        <div class="current-row"><span>Current shift</span><strong>${emp.shift || "Not set"}</strong></div>
+        <div class="current-row"><span>Current check in</span><strong>${formatDisplayTime(emp.clockIn)}</strong></div>
+        <div class="current-row"><span>Current check out</span><strong>${formatDisplayTime(emp.clockOut)}</strong></div>
+        <div class="current-row"><span>Status</span><strong>${emp.regularized ? "Regularized" : hasAny ? "Normal punch" : "No attendance"}</strong></div>
+      `;
+
+      const shiftSelect = document.getElementById("editShift");
+      shiftSelect.innerHTML =
+        `<option value="">Select shift</option>` +
+        SHIFTS.map((s) => `<option value="${s}" ${s === emp.shift ? "selected" : ""}>${s}</option>`).join("");
+
+      document.getElementById("editIn").value = emp.clockIn || "";
+      document.getElementById("editOut").value = emp.clockOut || "";
+      document.getElementById("editNote").value = "";
+
+      document.getElementById("editHelp").textContent = hasAny
+        ? "Change only what you need — check-in, check-out, shift, or any combination."
+        : "No punch found for this day. Add shift with check-in and/or check-out.";
+
+      editOverlay.classList.add("open");
+      requestAnimationFrame(() => {
+        if (focusField === "out") document.getElementById("editOut").focus();
+        else if (focusField === "in") document.getElementById("editIn").focus();
+        else if (!hasAny) shiftSelect.focus();
+      });
+    }
+
+    function openHistory(id) {
+      const emp = employees.find((e) => e.id === id);
+      if (!emp) return;
+      document.getElementById("historySubtitle").textContent =
+        `${emp.name} · ${emp.empId} · ${document.getElementById("reportDate").value}`;
+
+      const list = document.getElementById("historyList");
+      if (!emp.history.length) {
+        list.innerHTML = `<div class="empty-history">No regularization history yet.</div>`;
+      } else {
+        list.innerHTML = [...emp.history]
+          .reverse()
+          .map(
+            (h, idx) => `
+            <div class="history-item">
+              <h4>Edit ${emp.history.length - idx}</h4>
+              <div class="history-meta">${h.at} · by ${h.by}</div>
+              <div class="history-change">
+                <div><strong>Shift:</strong> ${h.before.shift || "—"} → ${h.after.shift || "—"}</div>
+                <div><strong>Check in:</strong> ${formatDisplayTime(h.before.clockIn)} → ${formatDisplayTime(h.after.clockIn)}</div>
+                <div><strong>Check out:</strong> ${formatDisplayTime(h.before.clockOut)} → ${formatDisplayTime(h.after.clockOut)}</div>
+                ${h.note ? `<div><strong>Note:</strong> ${h.note}</div>` : ""}
+              </div>
+            </div>
+          `
+          )
+          .join("");
+      }
+      historyOverlay.classList.add("open");
+    }
+
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add("show");
+      setTimeout(() => toastEl.classList.remove("show"), 2400);
+    }
+
+    function saveEdit() {
+      const emp = employees.find((e) => e.id === activeId);
+      if (!emp) return;
+
+      const nextShift = document.getElementById("editShift").value.trim();
+      const nextIn = document.getElementById("editIn").value;
+      const nextOut = document.getElementById("editOut").value;
+      const note = document.getElementById("editNote").value.trim();
+
+      const hadNothing = !emp.clockIn && !emp.clockOut && !emp.shift;
+
+      if (!nextShift && !nextIn && !nextOut) {
+        showToast("Please set a shift or at least one punch time.");
+        return;
+      }
+
+      if ((nextIn || nextOut) && !nextShift) {
+        showToast("Please select a shift when adding punch times.");
+        document.getElementById("editShift").focus();
+        return;
+      }
+
+      if (nextIn && nextOut) {
+        // allow overnight; no hard block
+      }
+
+      const before = {
+        clockIn: emp.clockIn,
+        clockOut: emp.clockOut,
+        shift: emp.shift,
+      };
+      const after = {
+        clockIn: nextIn,
+        clockOut: nextOut,
+        shift: nextShift,
+      };
+
+      const unchanged =
+        before.clockIn === after.clockIn &&
+        before.clockOut === after.clockOut &&
+        before.shift === after.shift;
+
+      if (unchanged) {
+        showToast("No changes to save.");
+        return;
+      }
+
+      const now = new Date();
+      const stamp = now.toISOString().slice(0, 16).replace("T", " ");
+
+      emp.history.push({
+        at: stamp,
+        by: "manibabu.a@bluconn.ai",
+        before,
+        after,
+        note: note || (hadNothing ? "Attendance added by manager" : "Regularized by manager"),
+      });
+
+      emp.shift = nextShift;
+      emp.clockIn = nextIn;
+      emp.clockOut = nextOut;
+      emp.regularized = true;
+      emp.overtime = calcOvertime(emp.clockIn, emp.clockOut);
+
+      editOverlay.classList.remove("open");
+      render();
+      showToast(hadNothing ? "Attendance added." : "Attendance regularized.");
+    }
+
+    bodyEl.addEventListener("click", (e) => {
+      const editBtn = e.target.closest("[data-edit]");
+      if (editBtn) {
+        openEdit(editBtn.dataset.edit, editBtn.dataset.focus);
+        return;
+      }
+      const histBtn = e.target.closest("[data-history]");
+      if (histBtn) openHistory(histBtn.dataset.history);
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", saveEdit);
+    searchEl.addEventListener("input", render);
+    shiftFilterEl.addEventListener("change", render);
+
+    document.querySelectorAll("[data-close]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const which = btn.getAttribute("data-close");
+        if (which === "edit") editOverlay.classList.remove("open");
+        if (which === "history") historyOverlay.classList.remove("open");
+      });
+    });
+
+    [editOverlay, historyOverlay].forEach((overlay) => {
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) overlay.classList.remove("open");
+      });
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        editOverlay.classList.remove("open");
+        historyOverlay.classList.remove("open");
+      }
+    });
+
+    document.getElementById("menuBtn").addEventListener("click", () => {
+      document.getElementById("sidebar").classList.toggle("open");
+    });
+
+    render();
+  </script>
+</body>
+</html>
