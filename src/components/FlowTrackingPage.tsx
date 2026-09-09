@@ -255,7 +255,11 @@ function ExecutionRow({ row }: { row: EnrichedExecution }) {
         {formatMinutes(row.time_saved_minutes)}
       </td>
       <td className="px-3 py-2">{formatINR(row.hourly_cost)}</td>
-      <td className="px-3 py-2 font-medium text-slate-800">
+      <td
+        className={`px-3 py-2 font-medium ${
+          row.amount_saved > 0 ? 'text-[#28A745]' : 'text-slate-400'
+        }`}
+      >
         {formatINR(row.amount_saved, true)}
       </td>
     </tr>

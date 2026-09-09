@@ -29,7 +29,7 @@ import {
 } from '../utils/calculations'
 
 const WORKFLOW_KEY = 'bluconn-workflows-v1'
-const INVESTMENT_KEY = 'bluconn-investment-v1'
+const INVESTMENT_KEY = 'bluconn-investment-v2'
 
 function loadWorkflows(): Workflow[] {
   const seeded = buildWorkflows()
@@ -44,13 +44,22 @@ function loadWorkflows(): Workflow[] {
   }
 }
 
-function loadInvestments(): Record<string, number> {
+function defaultInvestments(workflows: Workflow[]): Record<string, number> {
+  const totals: Record<string, number> = {}
+  for (const w of workflows) {
+    totals[w.account_id] = (totals[w.account_id] ?? 0) + w.bluconn_monthly_charge
+  }
+  return totals
+}
+
+function loadInvestments(workflows: Workflow[]): Record<string, number> {
+  const defaults = defaultInvestments(workflows)
   try {
     const raw = localStorage.getItem(INVESTMENT_KEY)
-    if (!raw) return { acc_001: 50000 }
-    return JSON.parse(raw) as Record<string, number>
+    if (!raw) return defaults
+    return { ...defaults, ...(JSON.parse(raw) as Record<string, number>) }
   } catch {
-    return { acc_001: 50000 }
+    return defaults
   }
 }
 
@@ -89,8 +98,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     startDate: DEFAULT_START_DATE,
     endDate: DEFAULT_END_DATE,
   })
-  const [investments, setInvestments] =
-    useState<Record<string, number>>(loadInvestments)
+  const [investments, setInvestments] = useState<Record<string, number>>(() =>
+    loadInvestments(loadWorkflows()),
+  )
 
   useEffect(() => {
     localStorage.setItem(WORKFLOW_KEY, JSON.stringify(workflows))

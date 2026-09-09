@@ -52,6 +52,14 @@ export function AnalyticsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('amount_saved')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
+  const suggestedCharge = useMemo(() => {
+    const selected =
+      filters.workflowIds.length > 0
+        ? accountWorkflows.filter((w) => filters.workflowIds.includes(w.id))
+        : accountWorkflows
+    return selected.reduce((s, w) => s + w.bluconn_monthly_charge, 0)
+  }, [accountWorkflows, filters.workflowIds])
+
   const apply = () => {
     setWorkflowIds(draftWorkflows)
     setDateRange(draftStart, draftEnd)
@@ -80,7 +88,10 @@ export function AnalyticsPage() {
     return rows
   }, [analytics.valueByWorkflow, sortKey, sortDir])
 
-  const daily = useMemo(() => buildDailySeries(filteredExecutions), [filteredExecutions])
+  const daily = useMemo(
+    () => buildDailySeries(filteredExecutions, filters.startDate, filters.endDate),
+    [filteredExecutions, filters.startDate, filters.endDate],
+  )
 
   return (
     <div>
@@ -187,10 +198,26 @@ export function AnalyticsPage() {
           <div className="mt-1 text-xs text-slate-500">
             Monthly charge for selected workflows · saved per account
           </div>
+          <button
+            type="button"
+            className="mt-2 text-xs font-medium text-[#17A2B8] hover:underline"
+            onClick={() => {
+              setInvestmentInput(String(suggestedCharge))
+              setCustomerInvestment(suggestedCharge)
+            }}
+          >
+            Use selected workflow charges ({formatINR(suggestedCharge)})
+          </button>
         </label>
       </div>
 
-      <div className="mb-4 overflow-hidden rounded-xl bg-gradient-to-r from-[#17A2B8] to-[#0F5F73] p-5 text-white shadow-sm">
+      <div
+        className={`mb-4 overflow-hidden rounded-xl p-5 text-white shadow-sm ${
+          (analytics.currentROI ?? 0) < 0
+            ? 'bg-gradient-to-r from-[#DC3545] to-[#9b1c28]'
+            : 'bg-gradient-to-r from-[#17A2B8] to-[#0F5F73]'
+        }`}
+      >
         <div className="text-xs font-semibold uppercase tracking-widest text-white/80">
           Current ROI
         </div>
@@ -237,19 +264,21 @@ export function AnalyticsPage() {
         <h2 className="mb-3 text-sm font-semibold text-slate-800">
           Flow Tracking — executions per day
         </h2>
-        <div className="flex h-40 items-end gap-2">
-          {daily.map((d) => (
-            <div key={d.label} className="flex flex-1 flex-col items-center gap-1">
-              <div
-                className="w-full rounded-t bg-[#17A2B8]"
-                style={{
-                  height: `${Math.max(6, (d.count / dailyMax(daily)) * 100)}%`,
-                }}
-                title={`${d.label}: ${d.count}`}
-              />
-              <span className="text-[10px] text-slate-500">{d.label}</span>
-            </div>
-          ))}
+        <div className="flex h-44 items-end gap-2">
+          {daily.map((d) => {
+            const max = dailyMax(daily)
+            const barH = Math.max(d.count > 0 ? 8 : 2, (d.count / max) * 140)
+            return (
+              <div key={d.label} className="flex flex-1 flex-col items-center gap-1">
+                <div
+                  className="w-full rounded-t bg-[#17A2B8]"
+                  style={{ height: `${barH}px` }}
+                  title={`${d.iso}: ${d.count}`}
+                />
+                <span className="text-[10px] text-slate-500">{d.label}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -349,18 +378,24 @@ function Kpi({
   )
 }
 
-function buildDailySeries(execs: { executed_at: string }[]) {
+function buildDailySeries(
+  execs: { executed_at: string }[],
+  startDate: string,
+  endDate: string,
+) {
   const map = new Map<string, number>()
-  for (let d = 1; d <= 9; d++) {
-    const key = `2026-09-${String(d).padStart(2, '0')}`
-    map.set(key, 0)
+  const cursor = new Date(`${startDate}T00:00:00Z`)
+  const last = new Date(`${endDate}T00:00:00Z`)
+  while (cursor <= last) {
+    map.set(cursor.toISOString().slice(0, 10), 0)
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
   for (const e of execs) {
     const key = e.executed_at.slice(0, 10)
     if (map.has(key)) map.set(key, (map.get(key) ?? 0) + 1)
-    else map.set(key, 1)
   }
   return [...map.entries()].map(([iso, count]) => ({
+    iso,
     label: iso.slice(8),
     count,
   }))
