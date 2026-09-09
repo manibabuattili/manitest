@@ -16,7 +16,7 @@ Open the URL Vite prints (default `http://localhost:5173`).
 | Nav | What it does |
 | --- | --- |
 | **Workflows** | Assigned workflow cards, edit persona / manual effort / hourly cost / monthly charge |
-| **Flow Tracking** | Execution table with Time Saved and Amount Saved |
+| **Dashboards** | KPI cards, customer investment, ROI, value-by-workflow |
 | **Analytics** | Category hub (Flow Tracking, Employee Activity, and related cards) |
 | **Value Potential** | Project extra users and usage |
 
