@@ -17,7 +17,7 @@ Open the URL Vite prints (default `http://localhost:5173`).
 | --- | --- |
 | **Workflows** | Assigned workflow cards, edit persona / manual effort / hourly cost / monthly charge |
 | **Flow Tracking** | Execution table with Time Saved and Amount Saved |
-| **Analytics** | KPI cards, customer investment, ROI, value-by-workflow |
+| **Analytics** | Category hub (Flow Tracking, Employee Activity, and related cards) |
 | **Value Potential** | Project extra users and usage |
 
 Account, workflow, and date filters sit on Flow Tracking and Analytics. Changing workflow config immediately recalculates tracking and ROI.

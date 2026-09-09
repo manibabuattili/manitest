@@ -1,5 +1,13 @@
-import { Hourglass, Pencil, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  CircleDollarSign,
+  Hourglass,
+  Pencil,
+  Plus,
+  Search,
+  Table2,
+  Trash2,
+} from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import type { Workflow } from '../types'
 import { formatINR } from '../utils/format'
@@ -8,14 +16,20 @@ import { Field, GhostButton, PrimaryButton, inputClass } from './ui'
 export function WorkflowsPage() {
   const {
     accountWorkflows,
+    availableWorkflows,
     selectedAccount,
     updateWorkflow,
+    createWorkflow,
+    assignWorkflows,
+    unassignWorkflow,
     setPage,
     setWorkflowIds,
   } = useDashboard()
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Workflow | null>(null)
+  const [creating, setCreating] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string[]>([])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -48,6 +62,14 @@ export function WorkflowsPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
+        <PrimaryButton
+          type="button"
+          className="inline-flex items-center gap-2"
+          onClick={() => setCreating(true)}
+        >
+          <Plus size={16} />
+          Create Workflow
+        </PrimaryButton>
       </div>
 
       <section className="mb-8">
@@ -59,44 +81,118 @@ export function WorkflowsPage() {
             {filtered.length} workflows
           </span>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3">
           {filtered.map((wf) => (
             <article
               key={wf.id}
-              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+              className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <div className="font-medium text-slate-900">{wf.name}</div>
                 <div className="text-xs text-slate-500">
                   {wf.primary_persona} · {wf.manual_effort_minutes} min ·{' '}
-                  {formatINR(wf.hourly_cost)}/hr
+                  {formatINR(wf.hourly_cost)}/hr · Charge{' '}
+                  {formatINR(wf.bluconn_monthly_charge)}
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button
+                <IconBtn
                   title="Edit value config"
-                  className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-[#17A2B8]"
                   onClick={() => {
                     setEditing(wf)
                     setSavedId(null)
                   }}
                 >
                   <Pencil size={16} />
-                </button>
-                <button
+                </IconBtn>
+                <IconBtn
                   title="Open flow tracking"
-                  className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-[#17A2B8]"
                   onClick={() => {
                     setWorkflowIds([wf.id])
                     setPage('flow-tracking')
                   }}
                 >
                   <Hourglass size={16} />
-                </button>
+                </IconBtn>
+                <IconBtn
+                  title="Unassign workflow"
+                  danger
+                  onClick={() => unassignWorkflow(wf.id)}
+                >
+                  <Trash2 size={16} />
+                </IconBtn>
+                <IconBtn
+                  title="Execution records"
+                  onClick={() => {
+                    setWorkflowIds([wf.id])
+                    setPage('flow-tracking')
+                  }}
+                >
+                  <Table2 size={16} />
+                </IconBtn>
+                <IconBtn
+                  title="Workflow analytics"
+                  onClick={() => {
+                    setWorkflowIds([wf.id])
+                    setPage('analytics')
+                  }}
+                >
+                  <CircleDollarSign size={16} />
+                </IconBtn>
               </div>
             </article>
           ))}
         </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-800">
+            Available workflows to assign
+          </h2>
+          <PrimaryButton
+            type="button"
+            disabled={picked.length === 0}
+            onClick={() => {
+              assignWorkflows(picked)
+              setPicked([])
+            }}
+          >
+            Assign Selected Workflows
+          </PrimaryButton>
+        </div>
+        {availableWorkflows.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+            No unassigned workflows for this account.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {availableWorkflows.map((wf) => (
+              <label
+                key={wf.id}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={picked.includes(wf.id)}
+                  onChange={() =>
+                    setPicked((prev) =>
+                      prev.includes(wf.id)
+                        ? prev.filter((id) => id !== wf.id)
+                        : [...prev, wf.id],
+                    )
+                  }
+                />
+                <div>
+                  <div className="font-medium text-slate-900">{wf.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {wf.primary_persona} · {wf.manual_effort_minutes} min
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
       </section>
 
       {editing && (
@@ -108,11 +204,125 @@ export function WorkflowsPage() {
             updateWorkflow(editing.id, patch)
             setSavedId(editing.id)
             setEditing((prev) =>
-              prev ? { ...prev, ...patch, updated_at: new Date().toISOString() } : prev,
+              prev
+                ? { ...prev, ...patch, updated_at: new Date().toISOString() }
+                : prev,
             )
           }}
         />
       )}
+      {creating && (
+        <CreateModal
+          onClose={() => setCreating(false)}
+          onCreate={(input) => {
+            createWorkflow(input)
+            setCreating(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function IconBtn({
+  title,
+  onClick,
+  children,
+  danger,
+}: {
+  title: string
+  onClick: () => void
+  children: ReactNode
+  danger?: boolean
+}) {
+  return (
+    <button
+      title={title}
+      className={`rounded-md p-2 hover:bg-slate-100 ${
+        danger ? 'text-[#DC3545]' : 'text-slate-500 hover:text-[#17A2B8]'
+      }`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}
+
+function CreateModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void
+  onCreate: (input: {
+    name: string
+    primary_persona: string
+    manual_effort_minutes: number
+    hourly_cost: number
+    bluconn_monthly_charge: number
+  }) => void
+}) {
+  const [name, setName] = useState('')
+  const [persona, setPersona] = useState('')
+  const [effort, setEffort] = useState('30')
+  const [cost, setCost] = useState('300')
+  const [charge, setCharge] = useState('2000')
+  const [errors, setErrors] = useState<string[]>([])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+      <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
+        <h3 className="mb-4 text-lg font-semibold">Create workflow</h3>
+        <div className="grid gap-3">
+          <Field label="Workflow name">
+            <input className={inputClass()} value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Primary persona">
+            <input className={inputClass()} value={persona} onChange={(e) => setPersona(e.target.value)} />
+          </Field>
+          <Field label="Manual effort (minutes)">
+            <input type="number" min={1} className={inputClass()} value={effort} onChange={(e) => setEffort(e.target.value)} />
+          </Field>
+          <Field label="Hourly cost (₹)">
+            <input type="number" min={1} className={inputClass()} value={cost} onChange={(e) => setCost(e.target.value)} />
+          </Field>
+          <Field label="Bluconn monthly charge (₹)">
+            <input type="number" min={0} className={inputClass()} value={charge} onChange={(e) => setCharge(e.target.value)} />
+          </Field>
+        </div>
+        {errors.length > 0 && (
+          <ul className="mt-3 list-disc pl-5 text-sm text-[#DC3545]">
+            {errors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <GhostButton type="button" onClick={onClose}>
+            Cancel
+          </GhostButton>
+          <PrimaryButton
+            type="button"
+            onClick={() => {
+              const next: string[] = []
+              if (!name.trim()) next.push('Name is required')
+              if (!persona.trim()) next.push('Primary persona is required')
+              if (!(Number(effort) > 0)) next.push('Manual effort must be greater than 0')
+              if (!(Number(cost) > 0)) next.push('Hourly cost must be greater than 0')
+              setErrors(next)
+              if (next.length) return
+              onCreate({
+                name: name.trim(),
+                primary_persona: persona.trim(),
+                manual_effort_minutes: Number(effort),
+                hourly_cost: Number(cost),
+                bluconn_monthly_charge: Number(charge),
+              })
+            }}
+          >
+            Create
+          </PrimaryButton>
+        </div>
+      </div>
     </div>
   )
 }

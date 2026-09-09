@@ -8,7 +8,7 @@ import {
   formatNumber,
   initials,
 } from '../utils/format'
-import { Field, GhostButton, FiltersBar, PrimaryButton, inputClass } from './ui'
+import { DashboardFilters } from './FilterControls'
 
 type SortKey =
   | 'employee_name'
@@ -23,29 +23,14 @@ type SortKey =
 const PAGE_SIZE = 25
 
 export function FlowTrackingPage() {
-  const {
-    accountWorkflows,
-    filteredExecutions,
-    filters,
-    setWorkflowIds,
-    setDateRange,
-    clearWorkflowFilter,
-    selectedAccount,
-  } = useDashboard()
+  const { filteredExecutions, filters, selectedAccount, setPage } = useDashboard()
   const [sortKey, setSortKey] = useState<SortKey>('executed_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [page, setPage] = useState(1)
-  const [draftWorkflows, setDraftWorkflows] = useState<string[]>(
-    filters.workflowIds,
-  )
-  const [draftStart, setDraftStart] = useState(filters.startDate)
-  const [draftEnd, setDraftEnd] = useState(filters.endDate)
+  const [page, setPageNum] = useState(1)
 
   useEffect(() => {
-    setDraftWorkflows(filters.workflowIds)
-    setDraftStart(filters.startDate)
-    setDraftEnd(filters.endDate)
-  }, [filters.workflowIds, filters.startDate, filters.endDate])
+    setPageNum(1)
+  }, [filters.accountId, filters.workflowIds, filters.startDate, filters.endDate])
 
   const sorted = useMemo(() => {
     const copy = [...filteredExecutions]
@@ -80,98 +65,56 @@ export function FlowTrackingPage() {
     }
   }
 
-  const apply = () => {
-    setWorkflowIds(draftWorkflows)
-    setDateRange(draftStart, draftEnd)
-    setPage(1)
-  }
+  const columns: [SortKey, string][] = [
+    ['employee_name', 'Employee'],
+    ['workflow_name', 'Workflow'],
+    ['executed_at', 'Executed At'],
+    ['actual_execution_time_minutes', 'Actual Duration (min)'],
+    ['manual_effort_minutes', 'Manual Effort (min)'],
+    ['time_saved_minutes', 'Time Saved (min)'],
+    ['hourly_cost', 'Hourly Cost (₹)'],
+    ['amount_saved', 'Amount Saved (₹)'],
+  ]
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Flow Tracking Analytics
-        </h1>
-        <p className="text-sm text-slate-500">
-          Execution-level time and rupee value for {selectedAccount.name}
-        </p>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Flow Tracking Analytics
+          </h1>
+          <p className="text-sm text-slate-500">
+            Execution-level time and rupee value for {selectedAccount.name}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="text-sm font-medium text-[#17A2B8] hover:underline"
+          onClick={() => setPage('hub')}
+        >
+          Back to categories
+        </button>
       </div>
 
-      <FiltersBar>
-        <Field label="Workflow">
-          <select
-            multiple
-            className={`${inputClass()} h-24`}
-            value={draftWorkflows}
-            onChange={(e) =>
-              setDraftWorkflows(
-                Array.from(e.target.selectedOptions).map((o) => o.value),
-              )
-            }
-          >
-            {accountWorkflows.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-          <span className="normal-case font-normal tracking-normal text-[11px] text-slate-400">
-            Hold Ctrl/Cmd to multi-select. Empty = all workflows.
-          </span>
-        </Field>
-        <Field label="From date">
-          <input
-            type="date"
-            className={inputClass()}
-            value={draftStart}
-            onChange={(e) => setDraftStart(e.target.value)}
-          />
-        </Field>
-        <Field label="To date">
-          <input
-            type="date"
-            className={inputClass()}
-            value={draftEnd}
-            onChange={(e) => setDraftEnd(e.target.value)}
-          />
-        </Field>
-        <div className="flex gap-2">
-          <PrimaryButton type="button" onClick={apply}>
-            Apply filters
-          </PrimaryButton>
-          <GhostButton
-            type="button"
-            onClick={() => {
-              setDraftWorkflows([])
-              setDraftStart('2026-09-01')
-              setDraftEnd('2026-09-09')
-              clearWorkflowFilter()
-              setDateRange('2026-09-01', '2026-09-09')
-              setPage(1)
-            }}
-          >
-            Clear
-          </GhostButton>
-        </div>
-      </FiltersBar>
+      <DashboardFilters />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="space-y-3 md:hidden">
+        {slice.map((row) => (
+          <ExecutionCard key={row.id} row={row} />
+        ))}
+        {slice.length === 0 && (
+          <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-500">
+            No executions in this range.
+          </p>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="min-w-[980px] w-full text-left text-sm">
             <thead className="bg-[#F5F7FA] text-[11px] uppercase tracking-wide text-slate-500">
               <tr>
-                {(
-                  [
-                    ['employee_name', 'Employee'],
-                    ['workflow_name', 'Workflow'],
-                    ['executed_at', 'Executed At'],
-                    ['actual_execution_time_minutes', 'Actual Duration (min)'],
-                    ['manual_effort_minutes', 'Manual Effort (min)'],
-                    ['time_saved_minutes', 'Time Saved (min)'],
-                    ['hourly_cost', 'Hourly Cost (₹)'],
-                    ['amount_saved', 'Amount Saved (₹)'],
-                  ] as [SortKey, string][]
-                ).map(([key, label]) => (
+                {columns.map(([key, label]) => (
                   <th key={key} className="px-3 py-3">
                     <button
                       className="font-semibold hover:text-[#17A2B8]"
@@ -198,34 +141,63 @@ export function FlowTrackingPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-col gap-2 border-t border-slate-200 bg-[#F5F7FA] px-4 py-3 text-sm font-medium text-slate-800 md:flex-row md:items-center md:justify-between">
-          <div>
-            Totals: {formatNumber(filteredExecutions.length)} executions ·{' '}
-            {formatNumber(totals.time / 60, 1)} hours saved ·{' '}
-            {formatINR(totals.amount, true)}
-          </div>
-          <div className="flex items-center gap-2 text-slate-600">
-            <button
-              disabled={current <= 1}
-              className="rounded border border-slate-200 bg-white px-2 py-1 disabled:opacity-40"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Prev
-            </button>
-            <span>
-              Page {current} of {pages}
-            </span>
-            <button
-              disabled={current >= pages}
-              className="rounded border border-slate-200 bg-white px-2 py-1 disabled:opacity-40"
-              onClick={() => setPage((p) => Math.min(pages, p + 1))}
-            >
-              Next
-            </button>
-          </div>
+      </div>
+
+      <div className="mt-0 flex flex-col gap-2 rounded-b-xl border border-t-0 border-slate-200 bg-[#F5F7FA] px-4 py-3 text-sm font-medium text-slate-800 md:flex-row md:items-center md:justify-between">
+        <div>
+          Totals: {formatNumber(filteredExecutions.length)} executions ·{' '}
+          {formatNumber(totals.time / 60, 1)} hours saved ·{' '}
+          {formatINR(totals.amount, true)}
+        </div>
+        <div className="flex items-center gap-2 text-slate-600">
+          <button
+            disabled={current <= 1}
+            className="rounded border border-slate-200 bg-white px-2 py-1 disabled:opacity-40"
+            onClick={() => setPageNum((p) => Math.max(1, p - 1))}
+          >
+            Prev
+          </button>
+          <span>
+            Page {current} of {pages}
+          </span>
+          <button
+            disabled={current >= pages}
+            className="rounded border border-slate-200 bg-white px-2 py-1 disabled:opacity-40"
+            onClick={() => setPageNum((p) => Math.min(pages, p + 1))}
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>
+  )
+}
+
+function ExecutionCard({ row }: { row: EnrichedExecution }) {
+  return (
+    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#17A2B8] text-[11px] font-semibold text-white">
+          {initials(row.employee_name)}
+        </span>
+        <div>
+          <div className="font-medium">{row.employee_name}</div>
+          <div className="text-xs text-slate-500">{row.workflow_name}</div>
+        </div>
+      </div>
+      <dl className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+        <div>Executed: {formatDateTime(row.executed_at)}</div>
+        <div>Actual: {formatMinutes(row.actual_execution_time_minutes)}</div>
+        <div>Manual: {formatMinutes(row.manual_effort_minutes)}</div>
+        <div className={row.time_saved_minutes > 0 ? 'text-[#28A745]' : ''}>
+          Saved: {formatMinutes(row.time_saved_minutes)}
+        </div>
+        <div>Cost: {formatINR(row.hourly_cost)}/hr</div>
+        <div className={row.amount_saved > 0 ? 'font-medium text-[#28A745]' : ''}>
+          Amount: {formatINR(row.amount_saved, true)}
+        </div>
+      </dl>
+    </article>
   )
 }
 

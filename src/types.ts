@@ -21,6 +21,7 @@ export interface Workflow {
   bluconn_monthly_charge: number
   created_at: string
   updated_at: string
+  assigned: boolean
 }
 
 export interface Execution {
@@ -40,6 +41,7 @@ export interface Execution {
 
 export type PageId =
   | 'workflows'
+  | 'hub'
   | 'flow-tracking'
   | 'analytics'
   | 'value-potential'

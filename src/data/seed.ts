@@ -80,6 +80,7 @@ const WORKFLOW_TEMPLATES: Omit<Workflow, 'id' | 'account_id'>[] = [
     bluconn_monthly_charge: 5000,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',
+    assigned: true,
   },
   {
     name: 'Face Attendance',
@@ -90,6 +91,7 @@ const WORKFLOW_TEMPLATES: Omit<Workflow, 'id' | 'account_id'>[] = [
     bluconn_monthly_charge: 3000,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',
+    assigned: true,
   },
   {
     name: 'Material Request',
@@ -100,6 +102,7 @@ const WORKFLOW_TEMPLATES: Omit<Workflow, 'id' | 'account_id'>[] = [
     bluconn_monthly_charge: 4000,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',
+    assigned: true,
   },
   {
     name: 'Trip Workflow',
@@ -110,6 +113,18 @@ const WORKFLOW_TEMPLATES: Omit<Workflow, 'id' | 'account_id'>[] = [
     bluconn_monthly_charge: 2500,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',
+    assigned: true,
+  },
+  {
+    name: 'odometer',
+    description: 'Odometer capture for fleet trips',
+    primary_persona: 'Driver',
+    manual_effort_minutes: 12,
+    hourly_cost: 180,
+    bluconn_monthly_charge: 1500,
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+    assigned: false,
   },
 ]
 
@@ -118,6 +133,7 @@ const SLUG: Record<string, string> = {
   'Face Attendance': 'attendance',
   'Material Request': 'material',
   'Trip Workflow': 'trip',
+  odometer: 'odometer',
 }
 
 export function buildWorkflows(): Workflow[] {
@@ -183,7 +199,9 @@ export function buildExecutions(workflows: Workflow[]): Execution[] {
 
   for (const account of ACCOUNTS) {
     const employees = employeesForAccount(account, rng)
-    const accountWorkflows = workflows.filter((w) => w.account_id === account.id)
+    const accountWorkflows = workflows.filter(
+      (w) => w.account_id === account.id && w.assigned,
+    )
 
     for (const workflow of accountWorkflows) {
       const count = randInt(rng, 80, 140)

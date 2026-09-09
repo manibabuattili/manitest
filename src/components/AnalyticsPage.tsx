@@ -10,7 +10,7 @@ import {
   formatPercent,
   workDaysFromHours,
 } from '../utils/format'
-import { Field, GhostButton, FiltersBar, PrimaryButton, inputClass } from './ui'
+import { DashboardFilters } from './FilterControls'
 
 type SortKey = keyof Pick<
   WorkflowBreakdown,
@@ -24,27 +24,14 @@ export function AnalyticsPage() {
     customerInvestment,
     setCustomerInvestment,
     filters,
-    setWorkflowIds,
-    setDateRange,
-    clearWorkflowFilter,
     filteredExecutions,
     selectedAccount,
+    setPage,
   } = useDashboard()
 
-  const [draftWorkflows, setDraftWorkflows] = useState<string[]>(
-    filters.workflowIds,
-  )
-  const [draftStart, setDraftStart] = useState(filters.startDate)
-  const [draftEnd, setDraftEnd] = useState(filters.endDate)
   const [investmentInput, setInvestmentInput] = useState(
     String(customerInvestment || ''),
   )
-
-  useEffect(() => {
-    setDraftWorkflows(filters.workflowIds)
-    setDraftStart(filters.startDate)
-    setDraftEnd(filters.endDate)
-  }, [filters.workflowIds, filters.startDate, filters.endDate])
 
   useEffect(() => {
     setInvestmentInput(String(customerInvestment || ''))
@@ -59,11 +46,6 @@ export function AnalyticsPage() {
         : accountWorkflows
     return selected.reduce((s, w) => s + w.bluconn_monthly_charge, 0)
   }, [accountWorkflows, filters.workflowIds])
-
-  const apply = () => {
-    setWorkflowIds(draftWorkflows)
-    setDateRange(draftStart, draftEnd)
-  }
 
   const saveInvestment = (raw: string) => {
     const n = Number(raw)
@@ -103,61 +85,16 @@ export function AnalyticsPage() {
             {filters.endDate}
           </p>
         </div>
+        <button
+          type="button"
+          className="text-sm font-medium text-[#17A2B8] hover:underline"
+          onClick={() => setPage('hub')}
+        >
+          Back to categories
+        </button>
       </div>
 
-      <FiltersBar>
-        <Field label="Workflows">
-          <select
-            multiple
-            className={`${inputClass()} h-24`}
-            value={draftWorkflows}
-            onChange={(e) =>
-              setDraftWorkflows(
-                Array.from(e.target.selectedOptions).map((o) => o.value),
-              )
-            }
-          >
-            {accountWorkflows.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="From date">
-          <input
-            type="date"
-            className={inputClass()}
-            value={draftStart}
-            onChange={(e) => setDraftStart(e.target.value)}
-          />
-        </Field>
-        <Field label="To date">
-          <input
-            type="date"
-            className={inputClass()}
-            value={draftEnd}
-            onChange={(e) => setDraftEnd(e.target.value)}
-          />
-        </Field>
-        <div className="flex gap-2">
-          <PrimaryButton type="button" onClick={apply}>
-            Apply filters
-          </PrimaryButton>
-          <GhostButton
-            type="button"
-            onClick={() => {
-              setDraftWorkflows([])
-              setDraftStart('2026-09-01')
-              setDraftEnd('2026-09-09')
-              clearWorkflowFilter()
-              setDateRange('2026-09-01', '2026-09-09')
-            }}
-          >
-            Clear
-          </GhostButton>
-        </div>
-      </FiltersBar>
+      <DashboardFilters />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi

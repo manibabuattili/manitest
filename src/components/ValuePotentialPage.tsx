@@ -7,6 +7,7 @@ import {
   formatNumber,
   formatPercent,
 } from '../utils/format'
+import { DashboardFilters } from './FilterControls'
 import { Field, PrimaryButton, inputClass } from './ui'
 
 export function ValuePotentialPage() {
@@ -46,6 +47,13 @@ export function ValuePotentialPage() {
   const [additionalUsers, setAdditionalUsers] = useState(5)
   const [usage, setUsage] = useState(Math.round(avgUsage * 10) / 10)
   const [show, setShow] = useState(true)
+  const [usageTouched, setUsageTouched] = useState(false)
+
+  useEffect(() => {
+    if (!usageTouched) {
+      setUsage(Math.round(avgUsage * 10) / 10)
+    }
+  }, [avgUsage, usageTouched, selected?.id])
 
   const clampedAdditional = Math.min(Math.max(0, additionalUsers), maxAdditional)
   const safeUsage = Math.max(0, usage)
@@ -67,6 +75,8 @@ export function ValuePotentialPage() {
         </p>
       </div>
 
+      <DashboardFilters />
+
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold text-slate-800">
           Project future value
@@ -78,6 +88,7 @@ export function ValuePotentialPage() {
               value={selected?.id ?? ''}
               onChange={(e) => {
                 setWorkflowId(e.target.value)
+                setUsageTouched(false)
               }}
             >
               {accountWorkflows.map((w) => (
@@ -101,7 +112,10 @@ export function ValuePotentialPage() {
               max={maxAdditional}
               className={inputClass()}
               value={additionalUsers}
-              onChange={(e) => setAdditionalUsers(Number(e.target.value))}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                setAdditionalUsers(Number.isNaN(n) ? 0 : n)
+              }}
             />
             <span className="normal-case font-normal tracking-normal text-[11px] text-slate-400">
               Max {maxAdditional} (eligible {eligible} − current {currentUsers})
@@ -114,7 +128,10 @@ export function ValuePotentialPage() {
               step={0.1}
               className={inputClass()}
               value={usage}
-              onChange={(e) => setUsage(Number(e.target.value))}
+              onChange={(e) => {
+                setUsageTouched(true)
+                setUsage(Number(e.target.value))
+              }}
             />
             <span className="normal-case font-normal tracking-normal text-[11px] text-slate-400">
               Pre-filled from current average ({formatNumber(avgUsage, 1)})

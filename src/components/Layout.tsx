@@ -23,16 +23,22 @@ const NAV: {
 }[] = [
   { id: 'workflows', label: 'Workflows', group: 'accounts', icon: Workflow },
   {
+    id: 'hub',
+    label: 'Analytics',
+    group: 'analytics',
+    icon: LayoutDashboard,
+  },
+  {
+    id: 'analytics',
+    label: 'Dashboards',
+    group: 'analytics',
+    icon: BarChart3,
+  },
+  {
     id: 'flow-tracking',
     label: 'Flow Tracking',
     group: 'analytics',
     icon: Hourglass,
-  },
-  {
-    id: 'analytics',
-    label: 'Analytics',
-    group: 'analytics',
-    icon: BarChart3,
   },
   {
     id: 'value-potential',
@@ -110,6 +116,7 @@ export function Sidebar({
               {NAV.filter((n) => n.group === 'accounts').map((item) => (
                 <NavItem
                   key={item.id}
+                  id={item.id}
                   label={item.label}
                   icon={item.icon}
                   active={page === item.id}
@@ -140,6 +147,7 @@ export function Sidebar({
               {NAV.filter((n) => n.group === 'analytics').map((item) => (
                 <NavItem
                   key={item.id}
+                  id={item.id}
                   label={item.label}
                   icon={item.icon}
                   active={page === item.id}
@@ -155,11 +163,13 @@ export function Sidebar({
 }
 
 function NavItem({
+  id,
   label,
   icon: Icon,
   active,
   onClick,
 }: {
+  id: PageId
   label: string
   icon: typeof Workflow
   active: boolean
@@ -168,6 +178,7 @@ function NavItem({
   return (
     <button
       onClick={onClick}
+      data-nav={id}
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${
         active
           ? 'bg-[#e6f6f8] font-medium text-[#0f6c7c]'

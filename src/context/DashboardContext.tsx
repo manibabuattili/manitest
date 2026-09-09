@@ -38,7 +38,11 @@ function loadWorkflows(): Workflow[] {
     if (!raw) return seeded
     const parsed = JSON.parse(raw) as Workflow[]
     const byId = new Map(parsed.map((w) => [w.id, w]))
-    return seeded.map((w) => byId.get(w.id) ?? w)
+    return seeded.map((w) => {
+      const saved = byId.get(w.id)
+      if (!saved) return w
+      return { ...w, ...saved, assigned: saved.assigned ?? w.assigned }
+    })
   } catch {
     return seeded
   }
@@ -47,6 +51,7 @@ function loadWorkflows(): Workflow[] {
 function defaultInvestments(workflows: Workflow[]): Record<string, number> {
   const totals: Record<string, number> = {}
   for (const w of workflows) {
+    if (w.assigned === false) continue
     totals[w.account_id] = (totals[w.account_id] ?? 0) + w.bluconn_monthly_charge
   }
   return totals
@@ -75,9 +80,20 @@ interface DashboardContextValue {
   setDateRange: (start: string, end: string) => void
   clearWorkflowFilter: () => void
   updateWorkflow: (id: string, patch: Partial<Workflow>) => void
+  createWorkflow: (input: {
+    name: string
+    primary_persona: string
+    manual_effort_minutes: number
+    hourly_cost: number
+    bluconn_monthly_charge: number
+    description?: string
+  }) => void
+  assignWorkflows: (ids: string[]) => void
+  unassignWorkflow: (id: string) => void
   customerInvestment: number
   setCustomerInvestment: (value: number) => void
   accountWorkflows: Workflow[]
+  availableWorkflows: Workflow[]
   filteredExecutions: EnrichedExecution[]
   analytics: ReturnType<typeof calculateAnalytics>
   selectedAccount: Account
@@ -136,6 +152,57 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  const createWorkflow = useCallback(
+    (input: {
+      name: string
+      primary_persona: string
+      manual_effort_minutes: number
+      hourly_cost: number
+      bluconn_monthly_charge: number
+      description?: string
+    }) => {
+      const now = new Date().toISOString()
+      const id = `wf_custom_${filters.accountId}_${Date.now()}`
+      setWorkflows((prev) => [
+        ...prev,
+        {
+          id,
+          account_id: filters.accountId,
+          name: input.name,
+          description: input.description ?? 'Custom workflow',
+          primary_persona: input.primary_persona,
+          manual_effort_minutes: input.manual_effort_minutes,
+          hourly_cost: input.hourly_cost,
+          bluconn_monthly_charge: input.bluconn_monthly_charge,
+          created_at: now,
+          updated_at: now,
+          assigned: true,
+        },
+      ])
+    },
+    [filters.accountId],
+  )
+
+  const assignWorkflows = useCallback((ids: string[]) => {
+    setWorkflows((prev) =>
+      prev.map((w) =>
+        ids.includes(w.id) ? { ...w, assigned: true, updated_at: new Date().toISOString() } : w,
+      ),
+    )
+  }, [])
+
+  const unassignWorkflow = useCallback((id: string) => {
+    setWorkflows((prev) =>
+      prev.map((w) =>
+        w.id === id ? { ...w, assigned: false, updated_at: new Date().toISOString() } : w,
+      ),
+    )
+    setFilters((prev) => ({
+      ...prev,
+      workflowIds: prev.workflowIds.filter((wid) => wid !== id),
+    }))
+  }, [])
+
   const customerInvestment = investments[filters.accountId] ?? 0
 
   const setCustomerInvestment = useCallback(
@@ -146,7 +213,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   )
 
   const accountWorkflows = useMemo(
-    () => workflows.filter((w) => w.account_id === filters.accountId),
+    () =>
+      workflows.filter(
+        (w) => w.account_id === filters.accountId && w.assigned !== false,
+      ),
+    [workflows, filters.accountId],
+  )
+
+  const availableWorkflows = useMemo(
+    () =>
+      workflows.filter(
+        (w) => w.account_id === filters.accountId && w.assigned === false,
+      ),
     [workflows, filters.accountId],
   )
 
@@ -156,10 +234,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   )
 
   const filteredExecutions = useMemo(() => {
-    return filterExecutions(executions, filters).map((exec) =>
-      enrichExecution(exec, workflowById.get(exec.workflow_id)),
-    )
-  }, [executions, filters, workflowById])
+    const assignedIds = new Set(accountWorkflows.map((w) => w.id))
+    return filterExecutions(executions, filters)
+      .filter((exec) => assignedIds.has(exec.workflow_id))
+      .map((exec) => enrichExecution(exec, workflowById.get(exec.workflow_id)))
+  }, [executions, filters, workflowById, accountWorkflows])
 
   const analytics = useMemo(
     () =>
@@ -186,9 +265,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setDateRange,
     clearWorkflowFilter,
     updateWorkflow,
+    createWorkflow,
+    assignWorkflows,
+    unassignWorkflow,
     customerInvestment,
     setCustomerInvestment,
     accountWorkflows,
+    availableWorkflows,
     filteredExecutions,
     analytics,
     selectedAccount,
