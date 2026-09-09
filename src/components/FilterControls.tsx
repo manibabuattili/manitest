@@ -4,12 +4,16 @@ import { Field, GhostButton, FiltersBar, inputClass } from './ui'
 
 export function DashboardFilters({
   showWorkflow = true,
+  showAccount = true,
 }: {
   showWorkflow?: boolean
+  showAccount?: boolean
 }) {
   const {
+    accounts,
     accountWorkflows,
     filters,
+    setAccountId,
     setWorkflowIds,
     setDateRange,
     clearWorkflowFilter,
@@ -26,8 +30,23 @@ export function DashboardFilters({
 
   return (
     <FiltersBar>
+      {showAccount && (
+        <Field label="Account">
+          <select
+            className={inputClass()}
+            value={filters.accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+          >
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       {showWorkflow && (
-        <div className="min-w-[220px] flex-1">
+        <div className="min-w-[220px] flex-[2]">
           <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Workflows
           </div>

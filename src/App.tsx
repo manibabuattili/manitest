@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { AnalyticsHub } from './components/AnalyticsHub'
 import { AnalyticsPage } from './components/AnalyticsPage'
 import { FlowTrackingPage } from './components/FlowTrackingPage'
 import { Sidebar, TopBar } from './components/Layout'
@@ -18,7 +17,6 @@ function Shell() {
         <TopBar onMenu={() => setNavOpen(true)} />
         <main className="flex-1 overflow-x-hidden p-4 md:p-6">
           {page === 'workflows' && <WorkflowsPage />}
-          {page === 'hub' && <AnalyticsHub />}
           {page === 'flow-tracking' && <FlowTrackingPage />}
           {page === 'analytics' && <AnalyticsPage />}
           {page === 'value-potential' && <ValuePotentialPage />}

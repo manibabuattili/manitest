@@ -41,7 +41,6 @@ export interface Execution {
 
 export type PageId =
   | 'workflows'
-  | 'hub'
   | 'flow-tracking'
   | 'analytics'
   | 'value-potential'

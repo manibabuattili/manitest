@@ -23,7 +23,7 @@ type SortKey =
 const PAGE_SIZE = 25
 
 export function FlowTrackingPage() {
-  const { filteredExecutions, filters, selectedAccount, setPage } = useDashboard()
+  const { filteredExecutions, filters, selectedAccount } = useDashboard()
   const [sortKey, setSortKey] = useState<SortKey>('executed_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPageNum] = useState(1)
@@ -84,16 +84,10 @@ export function FlowTrackingPage() {
             Flow Tracking Analytics
           </h1>
           <p className="text-sm text-slate-500">
-            Execution-level time and rupee value for {selectedAccount.name}
+            Existing run details plus time saved and amount saved for{' '}
+            {selectedAccount.name}
           </p>
         </div>
-        <button
-          type="button"
-          className="text-sm font-medium text-[#17A2B8] hover:underline"
-          onClick={() => setPage('hub')}
-        >
-          Back to categories
-        </button>
       </div>
 
       <DashboardFilters />

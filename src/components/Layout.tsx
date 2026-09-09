@@ -23,22 +23,16 @@ const NAV: {
 }[] = [
   { id: 'workflows', label: 'Workflows', group: 'accounts', icon: Workflow },
   {
-    id: 'hub',
-    label: 'Analytics',
-    group: 'analytics',
-    icon: LayoutDashboard,
-  },
-  {
-    id: 'analytics',
-    label: 'Dashboards',
-    group: 'analytics',
-    icon: BarChart3,
-  },
-  {
     id: 'flow-tracking',
     label: 'Flow Tracking',
     group: 'analytics',
     icon: Hourglass,
+  },
+  {
+    id: 'analytics',
+    label: 'Analytics',
+    group: 'analytics',
+    icon: BarChart3,
   },
   {
     id: 'value-potential',

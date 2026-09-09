@@ -1,8 +1,15 @@
-import { Banknote, Clock3, IndianRupee, ListChecks } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import {
+  Banknote,
+  Clock3,
+  IndianRupee,
+  ListChecks,
+  TrendingUp,
+  Users,
+} from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import type { WorkflowBreakdown } from '../types'
-import { roiMultiple } from '../utils/calculations'
+import { roiMultiple, uniqueEmployees } from '../utils/calculations'
 import {
   formatHours,
   formatINR,
@@ -14,7 +21,11 @@ import { DashboardFilters } from './FilterControls'
 
 type SortKey = keyof Pick<
   WorkflowBreakdown,
-  'workflow_name' | 'executions' | 'time_saved_minutes' | 'amount_saved' | 'avg_value_per_execution'
+  | 'workflow_name'
+  | 'executions'
+  | 'time_saved_minutes'
+  | 'amount_saved'
+  | 'avg_value_per_execution'
 >
 
 export function AnalyticsPage() {
@@ -26,16 +37,11 @@ export function AnalyticsPage() {
     filters,
     filteredExecutions,
     selectedAccount,
-    setPage,
   } = useDashboard()
 
   const [investmentInput, setInvestmentInput] = useState(
     String(customerInvestment || ''),
   )
-
-  useEffect(() => {
-    setInvestmentInput(String(customerInvestment || ''))
-  }, [customerInvestment, filters.accountId])
   const [sortKey, setSortKey] = useState<SortKey>('amount_saved')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -47,12 +53,22 @@ export function AnalyticsPage() {
     return selected.reduce((s, w) => s + w.bluconn_monthly_charge, 0)
   }, [accountWorkflows, filters.workflowIds])
 
+  useEffect(() => {
+    setCustomerInvestment(suggestedCharge)
+    setInvestmentInput(String(suggestedCharge))
+  }, [suggestedCharge, setCustomerInvestment])
+
   const saveInvestment = (raw: string) => {
     const n = Number(raw)
     if (Number.isNaN(n) || n < 0) return
     setCustomerInvestment(n)
   }
 
+  const activeUsers = uniqueEmployees(filteredExecutions)
+  const adoptionPct =
+    selectedAccount.employees_count > 0
+      ? (activeUsers / selectedAccount.employees_count) * 100
+      : 0
   const multiple = roiMultiple(analytics.totalAmountSaved, customerInvestment)
 
   const breakdown = useMemo(() => {
@@ -75,57 +91,69 @@ export function AnalyticsPage() {
     [filteredExecutions, filters.startDate, filters.endDate],
   )
 
+  const selectedLabel =
+    filters.workflowIds.length === 0
+      ? 'All workflows'
+      : accountWorkflows
+          .filter((w) => filters.workflowIds.includes(w.id))
+          .map((w) => w.name)
+          .join(', ')
+
   return (
     <div>
-      <div className="mb-4 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Analytics Dashboard</h1>
-          <p className="text-sm text-slate-500">
-            Consolidated ROI for {selectedAccount.name} · {filters.startDate} to{' '}
-            {filters.endDate}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="text-sm font-medium text-[#17A2B8] hover:underline"
-          onClick={() => setPage('hub')}
-        >
-          Back to categories
-        </button>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
+        <p className="text-sm text-slate-500">
+          Usage, adoption, time saved, amount saved, and ROI for{' '}
+          {selectedAccount.name} · {selectedLabel} · {filters.startDate} to{' '}
+          {filters.endDate}
+        </p>
       </div>
 
       <DashboardFilters />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Kpi
           icon={ListChecks}
-          label="Completed Executions"
+          label="Usage"
           value={formatNumber(analytics.totalExecutions)}
-          sub="in selected period"
+          sub="Workflow runs in this filter"
+        />
+        <Kpi
+          icon={Users}
+          label="Active users"
+          value={formatNumber(activeUsers)}
+          sub={`of ${formatNumber(selectedAccount.employees_count)} employees`}
+        />
+        <Kpi
+          icon={TrendingUp}
+          label="Adoption"
+          value={formatPercent(adoptionPct)}
+          sub="Active users ÷ employees in this account"
         />
         <Kpi
           icon={Clock3}
-          label="Manual Effort Avoided"
+          label="Time saved"
           value={formatHours(analytics.totalTimeSavedHours)}
-          sub={`≈ ${workDaysFromHours(analytics.totalTimeSavedHours)} work days saved`}
+          sub={`≈ ${workDaysFromHours(analytics.totalTimeSavedHours)} work days`}
         />
         <Kpi
           icon={IndianRupee}
-          label="Estimated Productivity Value"
+          label="Amount saved"
           value={formatINR(analytics.totalAmountSaved)}
-          sub="Based on hourly costs"
+          sub="Productivity value at hourly costs"
           tone="success"
         />
         <label className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             <Banknote size={16} className="text-[#17A2B8]" />
-            Customer Investment
+            Bluconn charges (₹)
           </div>
           <input
             type="number"
             min={0}
             className="w-full border-0 p-0 text-2xl font-bold text-slate-900 outline-none"
-            placeholder="Enter ₹ amount"
+            placeholder="Enter what Bluconn charges"
             value={investmentInput}
             onChange={(e) => {
               setInvestmentInput(e.target.value)
@@ -133,18 +161,19 @@ export function AnalyticsPage() {
             }}
           />
           <div className="mt-1 text-xs text-slate-500">
-            Monthly charge for selected workflows · saved per account
+            Editable. Used only for ROI. Suggested from selected workflow monthly
+            charges: {formatINR(suggestedCharge)}
           </div>
-          <button
-            type="button"
-            className="mt-2 text-xs font-medium text-[#17A2B8] hover:underline"
-            onClick={() => {
-              setInvestmentInput(String(suggestedCharge))
-              setCustomerInvestment(suggestedCharge)
-            }}
-          >
-            Use selected workflow charges ({formatINR(suggestedCharge)})
-          </button>
+          <div className="mt-3 text-sm text-slate-600">
+            ROI:{' '}
+            <span
+              className={`text-xl font-bold ${
+                (analytics.currentROI ?? 0) < 0 ? 'text-[#DC3545]' : 'text-[#28A745]'
+              }`}
+            >
+              {customerInvestment > 0 ? formatPercent(analytics.currentROI) : 'Enter charges'}
+            </span>
+          </div>
         </label>
       </div>
 
@@ -156,7 +185,7 @@ export function AnalyticsPage() {
         }`}
       >
         <div className="text-xs font-semibold uppercase tracking-widest text-white/80">
-          Current ROI
+          ROI for this account, workflow set, and dates
         </div>
         {customerInvestment > 0 ? (
           <>
@@ -164,25 +193,24 @@ export function AnalyticsPage() {
               {formatPercent(analytics.currentROI)}
             </div>
             <p className="mt-2 max-w-xl text-sm text-white/90">
-              Formula: (Productivity Value − Investment) / Investment × 100
+              (Amount saved − Bluconn charges) ÷ Bluconn charges × 100
             </p>
             {multiple !== null && (
               <p className="mt-1 text-sm font-medium">
-                {formatINR(multiple, true)} of value generated for every ₹1
-                invested
+                {formatINR(multiple, true)} of value for every ₹1 charged
               </p>
             )}
             <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
               <div>
-                Productivity Value:{' '}
+                Amount saved:{' '}
                 <strong>{formatINR(analytics.totalAmountSaved)}</strong>
               </div>
               <div>
-                Customer Investment:{' '}
+                Bluconn charges:{' '}
                 <strong>{formatINR(customerInvestment)}</strong>
               </div>
               <div>
-                Net Value:{' '}
+                Net:{' '}
                 <strong>
                   {formatINR(analytics.totalAmountSaved - customerInvestment)}
                 </strong>
@@ -191,37 +219,67 @@ export function AnalyticsPage() {
           </>
         ) : (
           <p className="mt-3 text-lg font-medium">
-            ROI cannot be calculated. Enter a customer investment greater than
-            0.
+            Enter what Bluconn charges the customer to see ROI.
           </p>
         )}
       </div>
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-slate-800">
-          Flow Tracking — executions per day
-        </h2>
-        <div className="flex h-44 items-end gap-2">
-          {daily.map((d) => {
-            const max = dailyMax(daily)
-            const barH = Math.max(d.count > 0 ? 8 : 2, (d.count / max) * 140)
-            return (
-              <div key={d.label} className="flex flex-1 flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-t bg-[#17A2B8]"
-                  style={{ height: `${barH}px` }}
-                  title={`${d.iso}: ${d.count}`}
-                />
-                <span className="text-[10px] text-slate-500">{d.label}</span>
-              </div>
-            )
-          })}
-        </div>
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ChartCard title="Usage — runs per day">
+          <MiniBars
+            rows={daily.map((d) => ({
+              label: d.label,
+              value: d.executions,
+              tip: `${d.iso}: ${d.executions} runs`,
+            }))}
+          />
+        </ChartCard>
+        <ChartCard title="Active users — unique people per day">
+          <MiniBars
+            color="#0F5F73"
+            rows={daily.map((d) => ({
+              label: d.label,
+              value: d.users,
+              tip: `${d.iso}: ${d.users} people`,
+            }))}
+          />
+        </ChartCard>
+        <ChartCard title="Time saved — hours per day">
+          <MiniBars
+            color="#28A745"
+            rows={daily.map((d) => ({
+              label: d.label,
+              value: d.timeHours,
+              tip: `${d.iso}: ${d.timeHours.toFixed(1)} hrs`,
+            }))}
+          />
+        </ChartCard>
+        <ChartCard title="Amount saved — ₹ per day">
+          <MiniBars
+            color="#138496"
+            rows={daily.map((d) => ({
+              label: d.label,
+              value: d.amount,
+              tip: `${d.iso}: ${formatINR(d.amount)}`,
+            }))}
+          />
+        </ChartCard>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <ChartCard title="Amount saved by workflow">
+        <MiniBars
+          color="#17A2B8"
+          rows={breakdown.map((row) => ({
+            label: row.workflow_name,
+            value: row.amount_saved,
+            tip: `${row.workflow_name}: ${formatINR(row.amount_saved)}`,
+          }))}
+        />
+      </ChartCard>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold">
-          Value by workflow
+          Value by workflow (same filters)
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-[720px] w-full text-left text-sm">
@@ -230,10 +288,10 @@ export function AnalyticsPage() {
                 {(
                   [
                     ['workflow_name', 'Workflow'],
-                    ['executions', 'Executions'],
-                    ['time_saved_minutes', 'Time Saved (hrs)'],
-                    ['amount_saved', 'Amount Saved (₹)'],
-                    ['avg_value_per_execution', 'Avg Value/Execution'],
+                    ['executions', 'Usage'],
+                    ['time_saved_minutes', 'Time saved (hrs)'],
+                    ['amount_saved', 'Amount saved (₹)'],
+                    ['avg_value_per_execution', 'Avg value / run'],
                   ] as [SortKey, string][]
                 ).map(([key, label]) => (
                   <th key={key} className="px-3 py-3">
@@ -282,6 +340,53 @@ export function AnalyticsPage() {
   )
 }
 
+function ChartCard({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="mb-3 text-sm font-semibold text-slate-800">{title}</h2>
+      {children}
+    </div>
+  )
+}
+
+function MiniBars({
+  rows,
+  color = '#17A2B8',
+}: {
+  rows: { label: string; value: number; tip: string }[]
+  color?: string
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.value))
+  if (rows.length === 0) {
+    return <p className="text-sm text-slate-500">No data in this filter.</p>
+  }
+  return (
+    <div className="flex h-40 items-end gap-1 overflow-x-auto">
+      {rows.map((d) => {
+        const h = Math.max(d.value > 0 ? 6 : 2, (d.value / max) * 130)
+        return (
+          <div
+            key={d.label}
+            className="flex min-w-[28px] flex-1 flex-col items-center gap-1"
+            title={d.tip}
+          >
+            <div className="w-full rounded-t" style={{ height: `${h}px`, background: color }} />
+            <span className="max-w-full truncate text-[10px] text-slate-500">
+              {d.label}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function Kpi({
   icon: Icon,
   label,
@@ -316,28 +421,45 @@ function Kpi({
 }
 
 function buildDailySeries(
-  execs: { executed_at: string }[],
+  execs: {
+    executed_at: string
+    employee_id: string
+    time_saved_minutes: number
+    amount_saved: number
+  }[],
   startDate: string,
   endDate: string,
 ) {
-  const map = new Map<string, number>()
+  const map = new Map<
+    string,
+    { executions: number; users: Set<string>; timeMin: number; amount: number }
+  >()
   const cursor = new Date(`${startDate}T00:00:00Z`)
   const last = new Date(`${endDate}T00:00:00Z`)
   while (cursor <= last) {
-    map.set(cursor.toISOString().slice(0, 10), 0)
+    map.set(cursor.toISOString().slice(0, 10), {
+      executions: 0,
+      users: new Set(),
+      timeMin: 0,
+      amount: 0,
+    })
     cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
   for (const e of execs) {
     const key = e.executed_at.slice(0, 10)
-    if (map.has(key)) map.set(key, (map.get(key) ?? 0) + 1)
+    const bucket = map.get(key)
+    if (!bucket) continue
+    bucket.executions += 1
+    bucket.users.add(e.employee_id)
+    bucket.timeMin += e.time_saved_minutes
+    bucket.amount += e.amount_saved
   }
-  return [...map.entries()].map(([iso, count]) => ({
+  return [...map.entries()].map(([iso, b]) => ({
     iso,
     label: iso.slice(8),
-    count,
+    executions: b.executions,
+    users: b.users.size,
+    timeHours: b.timeMin / 60,
+    amount: b.amount,
   }))
-}
-
-function dailyMax(rows: { count: number }[]) {
-  return Math.max(1, ...rows.map((r) => r.count))
 }

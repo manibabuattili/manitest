@@ -2,6 +2,8 @@
 
 Partner-portal style React app that measures workflow efficiency, rupee value of time saved, ROI, and future adoption potential.
 
+Leadership overview (what we deliver and how value is calculated): see **[PRD.md](./PRD.md)**.
+
 ## Run locally
 
 ```bash
@@ -15,16 +17,16 @@ Open the URL Vite prints (default `http://localhost:5173`).
 
 | Nav | What it does |
 | --- | --- |
-| **Workflows** | Assigned workflow cards, edit persona / manual effort / hourly cost / monthly charge |
-| **Dashboards** | KPI cards, customer investment, ROI, value-by-workflow |
-| **Analytics** | Category hub (Flow Tracking, Employee Activity, and related cards) |
+| **Workflows** | Always-editable effort, hourly cost, persona, Bluconn charge |
+| **Flow Tracking** | Run table plus time saved and amount saved |
+| **Analytics** | Metric cards, charts, account/workflow/date filters, ROI from editable Bluconn charges |
 | **Value Potential** | Project extra users and usage |
 
 Account, workflow, and date filters sit on Flow Tracking and Analytics. Changing workflow config immediately recalculates tracking and ROI.
 
 ## Partner portal reference screenshots
 
-Visual references used for layout (Workflows cards, Flow Tracking table, Analytics hub):
+Visual references used for layout (Workflows cards, Flow Tracking table, Analytics):
 
 - `public/reference-screenshots/workflows-assign.png`
 - `public/reference-screenshots/flow-tracking-results.png`
